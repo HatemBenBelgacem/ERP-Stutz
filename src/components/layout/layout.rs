@@ -15,7 +15,9 @@ const NAVIGATION: [(&str, &str, icondata::Icon); 4] = [
 
 #[component]
 pub fn Layout() -> impl IntoView {
-    // Desktop: Sidebar schmal (nur Icons) oder breit. Mobil: Sidebar ein-/ausgeblendet.
+    // Smartphone (< md): Sidebar als ausklappbares Menü.
+    // Tablet (md bis lg): schmale Leiste nur mit Icons.
+    // Desktop (ab lg): breit oder per Knopf auf Icons eingeklappt.
     let eingeklappt = RwSignal::new(false);
     let mobil_offen = RwSignal::new(false);
 
@@ -24,7 +26,7 @@ pub fn Layout() -> impl IntoView {
             <Header eingeklappt mobil_offen/>
             <div class="flex flex-1 overflow-hidden">
                 <Sidebar eingeklappt mobil_offen/>
-                <main class="flex-1 overflow-y-auto p-4 lg:p-8">
+                <main class="min-w-0 flex-1 overflow-y-auto p-3 sm:p-4 lg:p-8">
                     <div class="mx-auto max-w-6xl"><Outlet/></div>
                 </main>
             </div>
@@ -37,7 +39,7 @@ fn Header(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl Into
     view! {
         <header class="navbar z-50 h-16 min-h-16 gap-2 border-b border-base-300 bg-base-100 px-3">
             <button
-                class="btn btn-ghost btn-square lg:hidden"
+                class="btn btn-ghost btn-square md:hidden"
                 aria-label="Navigation öffnen"
                 on:click=move |_| mobil_offen.update(|o| *o = !*o)
             >
@@ -72,16 +74,16 @@ fn Sidebar(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl Int
         let mobil = if mobil_offen.get() { "translate-x-0 shadow-xl" } else { "-translate-x-full" };
         let breite = if eingeklappt.get() { "lg:w-16" } else { "lg:w-60" };
         format!(
-            "fixed top-16 bottom-0 left-0 z-40 w-60 {mobil} lg:static lg:translate-x-0 lg:shadow-none {breite} \
+            "fixed top-16 bottom-0 left-0 z-40 w-60 {mobil} md:static md:w-16 md:translate-x-0 md:shadow-none {breite} \
              flex shrink-0 flex-col overflow-hidden border-r border-base-300 bg-base-100 transition-all duration-200"
         )
     };
     let sitzung = use_sitzung();
-    let beschriftung = move || if eingeklappt.get() { "lg:hidden" } else { "" };
+    let beschriftung = move || beschriftung_klassen(eingeklappt.get());
 
     view! {
         <Show when=move || mobil_offen.get()>
-            <div class="fixed inset-0 top-16 z-30 bg-base-content/20 lg:hidden" on:click=move |_| mobil_offen.set(false)></div>
+            <div class="fixed inset-0 top-16 z-30 bg-base-content/20 md:hidden" on:click=move |_| mobil_offen.set(false)></div>
         </Show>
         <aside class=klassen aria-label="Hauptnavigation">
             <ul class="menu w-full gap-1 p-2">
@@ -102,6 +104,11 @@ fn Sidebar(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl Int
     }
 }
 
+/// Menütexte: auf dem Tablet immer ausgeblendet, auf dem Desktop nur eingeklappt.
+fn beschriftung_klassen(eingeklappt: bool) -> &'static str {
+    if eingeklappt { "md:hidden" } else { "md:max-lg:hidden" }
+}
+
 #[component]
 fn NavEintrag(
     href: &'static str,
@@ -110,8 +117,7 @@ fn NavEintrag(
     eingeklappt: RwSignal<bool>,
     mobil_offen: RwSignal<bool>,
 ) -> impl IntoView {
-    // Beschriftung nur auf dem Desktop im eingeklappten Zustand ausblenden.
-    let beschriftung = move || if eingeklappt.get() { "lg:hidden" } else { "" };
+    let beschriftung = move || beschriftung_klassen(eingeklappt.get());
     view! {
         <li on:click=move |_| mobil_offen.set(false)>
             <A
@@ -151,7 +157,7 @@ fn Benutzermenue() -> impl IntoView {
                                 </div>
                             </li>
                             <li>
-                                <button on:click=move |_| { sitzung.abmelden.dispatch(crate::auth::Abmelden {}); }>
+                                <button on:click=move |_| { sitzung.abmelden.dispatch(crate::backend::auth::Abmelden {}); }>
                                     <Icon icon=icondata::LuLogOut/>
                                     "Abmelden"
                                 </button>

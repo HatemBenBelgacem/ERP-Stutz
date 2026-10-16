@@ -38,6 +38,7 @@ pub struct Termin {
     pub beginn: NaiveDateTime,
     pub ende: NaiveDateTime,
     pub ort: String,
+    pub max_teilnehmer: i32,
     pub mitarbeiter: Vec<Mitarbeiter>,
 }
 
@@ -49,6 +50,7 @@ pub struct TerminEingabe {
     pub beginn: String,
     pub ende: String,
     pub ort: String,
+    pub max_teilnehmer: i32,
     pub mitarbeiter_ids: Vec<Uuid>,
 }
 

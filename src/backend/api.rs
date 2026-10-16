@@ -33,8 +33,8 @@ mod hilfe {
 
 #[server(input = Json)]
 pub async fn statistik() -> Result<(i64, i64, i64), ServerFnError> {
-    crate::auth::server::benutzer_pflicht().await?;
-    use crate::db::{fehler, pool};
+    crate::backend::auth::server::benutzer_pflicht().await?;
+    use crate::backend::db::{fehler, pool};
     sqlx::query_as(
         "SELECT (SELECT COUNT(*) FROM kurs), (SELECT COUNT(*) FROM mitarbeiter), (SELECT COUNT(*) FROM termin)",
     )
@@ -47,8 +47,8 @@ pub async fn statistik() -> Result<(i64, i64, i64), ServerFnError> {
 
 #[server(input = Json)]
 pub async fn kurse_laden() -> Result<Vec<Kurs>, ServerFnError> {
-    crate::auth::server::benutzer_pflicht().await?;
-    use crate::db::{fehler, pool};
+    crate::backend::auth::server::benutzer_pflicht().await?;
+    use crate::backend::db::{fehler, pool};
     sqlx::query_as("SELECT id, titel, beschreibung, dauer_stunden FROM kurs ORDER BY titel")
         .fetch_all(pool())
         .await
@@ -62,8 +62,8 @@ pub async fn kurs_speichern(
     beschreibung: String,
     dauer_stunden: i32,
 ) -> Result<(), ServerFnError> {
-    crate::auth::server::benutzer_pflicht().await?;
-    use crate::db::{fehler, pool};
+    crate::backend::auth::server::benutzer_pflicht().await?;
+    use crate::backend::db::{fehler, pool};
     let titel = hilfe::pflicht(titel, "Titel")?;
     if dauer_stunden < 0 {
         return Err(ServerFnError::new("Die Dauer darf nicht negativ sein."));
@@ -89,8 +89,8 @@ pub async fn kurs_speichern(
 
 #[server(input = Json)]
 pub async fn kurs_loeschen(id: Uuid) -> Result<(), ServerFnError> {
-    crate::auth::server::benutzer_pflicht().await?;
-    use crate::db::{fehler, pool};
+    crate::backend::auth::server::benutzer_pflicht().await?;
+    use crate::backend::db::{fehler, pool};
     sqlx::query("DELETE FROM kurs WHERE id = $1")
         .bind(id)
         .execute(pool())
@@ -103,8 +103,8 @@ pub async fn kurs_loeschen(id: Uuid) -> Result<(), ServerFnError> {
 
 #[server(input = Json)]
 pub async fn mitarbeiter_laden() -> Result<Vec<Mitarbeiter>, ServerFnError> {
-    crate::auth::server::benutzer_pflicht().await?;
-    use crate::db::{fehler, pool};
+    crate::backend::auth::server::benutzer_pflicht().await?;
+    use crate::backend::db::{fehler, pool};
     sqlx::query_as(
         "SELECT id, vorname, nachname, email, abteilung FROM mitarbeiter ORDER BY nachname, vorname",
     )
@@ -121,8 +121,8 @@ pub async fn mitarbeiter_speichern(
     email: String,
     abteilung: String,
 ) -> Result<(), ServerFnError> {
-    crate::auth::server::benutzer_pflicht().await?;
-    use crate::db::{fehler, pool};
+    crate::backend::auth::server::benutzer_pflicht().await?;
+    use crate::backend::db::{fehler, pool};
     let vorname = hilfe::pflicht(vorname, "Vorname")?;
     let nachname = hilfe::pflicht(nachname, "Nachname")?;
     let email = hilfe::pflicht(email, "E-Mail")?.to_lowercase();
@@ -151,8 +151,8 @@ pub async fn mitarbeiter_speichern(
 
 #[server(input = Json)]
 pub async fn mitarbeiter_loeschen(id: Uuid) -> Result<(), ServerFnError> {
-    crate::auth::server::benutzer_pflicht().await?;
-    use crate::db::{fehler, pool};
+    crate::backend::auth::server::benutzer_pflicht().await?;
+    use crate::backend::db::{fehler, pool};
     // Teilnahmen werden per ON DELETE CASCADE mitgelöscht.
     sqlx::query("DELETE FROM mitarbeiter WHERE id = $1")
         .bind(id)
@@ -166,15 +166,15 @@ pub async fn mitarbeiter_loeschen(id: Uuid) -> Result<(), ServerFnError> {
 
 #[server(input = Json)]
 pub async fn termine_laden() -> Result<Vec<Termin>, ServerFnError> {
-    crate::auth::server::benutzer_pflicht().await?;
+    crate::backend::auth::server::benutzer_pflicht().await?;
     use std::collections::HashMap;
 
     use chrono::NaiveDateTime;
 
-    use crate::db::{fehler, pool};
+    use crate::backend::db::{fehler, pool};
 
-    let zeilen: Vec<(Uuid, Uuid, String, NaiveDateTime, NaiveDateTime, String)> = sqlx::query_as(
-        "SELECT t.id, t.kurs_id, k.titel, t.beginn, t.ende, t.ort
+    let zeilen: Vec<(Uuid, Uuid, String, NaiveDateTime, NaiveDateTime, String, i32)> = sqlx::query_as(
+        "SELECT t.id, t.kurs_id, k.titel, t.beginn, t.ende, t.ort, t.max_teilnehmer
          FROM termin t JOIN kurs k ON k.id = t.kurs_id
          ORDER BY t.beginn",
     )
@@ -204,7 +204,7 @@ pub async fn termine_laden() -> Result<Vec<Termin>, ServerFnError> {
 
     Ok(zeilen
         .into_iter()
-        .map(|(id, kurs_id, kurs_titel, beginn, ende, ort)| Termin {
+        .map(|(id, kurs_id, kurs_titel, beginn, ende, ort, max_teilnehmer)| Termin {
             mitarbeiter: pro_termin.remove(&id).unwrap_or_default(),
             id,
             kurs_id,
@@ -212,31 +212,46 @@ pub async fn termine_laden() -> Result<Vec<Termin>, ServerFnError> {
             beginn,
             ende,
             ort,
+            max_teilnehmer,
         })
         .collect())
 }
 
 #[server(input = Json)]
 pub async fn termin_speichern(id: Option<Uuid>, eingabe: TerminEingabe) -> Result<(), ServerFnError> {
-    crate::auth::server::benutzer_pflicht().await?;
-    use crate::db::{fehler, pool};
+    crate::backend::auth::server::benutzer_pflicht().await?;
+    use crate::backend::db::{fehler, pool};
 
     let beginn = hilfe::zeitpunkt(&eingabe.beginn, "Beginn")?;
     let ende = hilfe::zeitpunkt(&eingabe.ende, "Ende")?;
     if ende <= beginn {
         return Err(ServerFnError::new("Das Ende muss nach dem Beginn liegen."));
     }
+    if eingabe.max_teilnehmer < 1 {
+        return Err(ServerFnError::new("Die maximale Teilnehmerzahl muss mindestens 1 sein."));
+    }
+    if eingabe.mitarbeiter_ids.len() > eingabe.max_teilnehmer as usize {
+        return Err(ServerFnError::new(format!(
+            "Es sind {} Teilnehmende ausgewählt, erlaubt sind höchstens {}.",
+            eingabe.mitarbeiter_ids.len(),
+            eingabe.max_teilnehmer
+        )));
+    }
 
     let mut tx = pool().begin().await.map_err(fehler)?;
 
     let termin_id: Uuid = match id {
         Some(id) => {
-            sqlx::query("UPDATE termin SET kurs_id = $2, beginn = $3, ende = $4, ort = $5 WHERE id = $1")
+            sqlx::query(
+                "UPDATE termin SET kurs_id = $2, beginn = $3, ende = $4, ort = $5, max_teilnehmer = $6
+                 WHERE id = $1",
+            )
                 .bind(id)
                 .bind(eingabe.kurs_id)
                 .bind(beginn)
                 .bind(ende)
                 .bind(eingabe.ort.trim().to_string())
+                .bind(eingabe.max_teilnehmer)
                 .execute(&mut *tx)
                 .await
                 .map_err(fehler)?;
@@ -248,12 +263,13 @@ pub async fn termin_speichern(id: Option<Uuid>, eingabe: TerminEingabe) -> Resul
             id
         }
         None => sqlx::query_scalar(
-            "INSERT INTO termin (kurs_id, beginn, ende, ort) VALUES ($1, $2, $3, $4) RETURNING id",
+            "INSERT INTO termin (kurs_id, beginn, ende, ort, max_teilnehmer) VALUES ($1, $2, $3, $4, $5) RETURNING id",
         )
         .bind(eingabe.kurs_id)
         .bind(beginn)
         .bind(ende)
         .bind(eingabe.ort.trim().to_string())
+        .bind(eingabe.max_teilnehmer)
         .fetch_one(&mut *tx)
         .await
         .map_err(fehler)?,
@@ -275,8 +291,8 @@ pub async fn termin_speichern(id: Option<Uuid>, eingabe: TerminEingabe) -> Resul
 
 #[server(input = Json)]
 pub async fn termin_loeschen(id: Uuid) -> Result<(), ServerFnError> {
-    crate::auth::server::benutzer_pflicht().await?;
-    use crate::db::{fehler, pool};
+    crate::backend::auth::server::benutzer_pflicht().await?;
+    use crate::backend::db::{fehler, pool};
     sqlx::query("DELETE FROM termin WHERE id = $1")
         .bind(id)
         .execute(pool())

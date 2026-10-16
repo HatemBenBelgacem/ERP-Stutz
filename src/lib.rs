@@ -1,13 +1,7 @@
-pub mod api;
-pub mod auth;
 pub mod app;
+pub mod backend;
 pub mod components;
-pub mod layout;
 pub mod models;
-pub mod pages;
-
-#[cfg(feature = "ssr")]
-pub mod db;
 
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]

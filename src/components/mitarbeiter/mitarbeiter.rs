@@ -2,8 +2,8 @@ use leptos::prelude::*;
 use leptos_icons::Icon;
 use uuid::Uuid;
 
-use crate::api::{MitarbeiterLoeschen, MitarbeiterSpeichern, mitarbeiter_laden};
-use crate::components::{
+use crate::backend::api::{MitarbeiterLoeschen, MitarbeiterSpeichern, mitarbeiter_laden};
+use crate::components::gemeinsam::{
     Dialog, DialogAktionen, Fehlermeldung, Laden, Leer, Seitenkopf, ZeilenAktionen,
     bestaetigt, ergebnis_beobachten, meldung_aus,
 };
@@ -72,30 +72,35 @@ pub fn MitarbeiterSeite() -> impl IntoView {
                                 <Leer symbol=icondata::LuUsers text="Noch keine Mitarbeiter erfasst."/>
                             }.into_any(),
                             Ok(liste) => view! {
-                                <table class="table">
-                                    <thead><tr><th>"Name"</th><th>"E-Mail"</th><th>"Abteilung"</th><th></th></tr></thead>
+                                <table class="table max-sm:table-sm">
+                                    <thead><tr><th>"Name"</th><th class="hidden md:table-cell">"E-Mail"</th><th class="hidden sm:table-cell">"Abteilung"</th><th></th></tr></thead>
                                     <tbody>
                                         {liste.into_iter().map(|m| {
                                             let id = m.id;
                                             let name = m.name();
                                             let zum_bearbeiten = m.clone();
+                                            let bearbeiten = move || {
+                                                let m = zum_bearbeiten.clone();
+                                                bearbeite.set(Some(m.id));
+                                                vorname.set(m.vorname);
+                                                nachname.set(m.nachname);
+                                                email.set(m.email);
+                                                abteilung.set(m.abteilung);
+                                                formular_meldung.set(None);
+                                                dialog_offen.set(true);
+                                            };
                                             view! {
-                                                <tr class="hover:bg-base-200/50">
-                                                    <td class="font-medium">{name}</td>
-                                                    <td class="text-base-content/70">{m.email}</td>
-                                                    <td>{m.abteilung}</td>
+                                                <tr class="cursor-pointer select-none hover:bg-base-200/50" title="Doppelklick zum Bearbeiten"
+                                                    on:dblclick={let bearbeiten = bearbeiten.clone(); move |_| bearbeiten()}>
+                                                    <td>
+                                                        <div class="font-medium">{name}</div>
+                                                        <div class="text-xs text-base-content/60 break-all md:hidden">{m.email.clone()}</div>
+                                                    </td>
+                                                    <td class="hidden text-base-content/70 md:table-cell">{m.email}</td>
+                                                    <td class="hidden sm:table-cell">{m.abteilung}</td>
                                                     <td>
                                                         <ZeilenAktionen
-                                                            bearbeiten=move || {
-                                                                let m = zum_bearbeiten.clone();
-                                                                bearbeite.set(Some(m.id));
-                                                                vorname.set(m.vorname);
-                                                                nachname.set(m.nachname);
-                                                                email.set(m.email);
-                                                                abteilung.set(m.abteilung);
-                                                                formular_meldung.set(None);
-                                                                dialog_offen.set(true);
-                                                            }
+                                                            bearbeiten=bearbeiten.clone()
                                                             loeschen=move || {
                                                                 if bestaetigt("Mitarbeiter wirklich löschen? Die Teilnahmen an Terminen werden ebenfalls entfernt.") {
                                                                     loeschen.dispatch(MitarbeiterLoeschen { id });

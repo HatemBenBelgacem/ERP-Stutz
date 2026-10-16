@@ -2,8 +2,8 @@ use leptos::prelude::*;
 use leptos_icons::Icon;
 use leptos_router::components::A;
 
-use crate::api::statistik;
-use crate::components::{Laden, Seitenkopf, meldung_aus};
+use crate::backend::api::statistik;
+use crate::components::gemeinsam::{Laden, Seitenkopf, meldung_aus};
 
 #[component]
 pub fn Uebersicht() -> impl IntoView {

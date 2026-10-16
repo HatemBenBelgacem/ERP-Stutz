@@ -3,16 +3,16 @@ use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
 use leptos_router::StaticSegment;
 use leptos_router::components::{ProtectedParentRoute, ProtectedRoute, Route, Router, Routes};
 
-use crate::auth::{Abmelden, Anmelden, Registrieren, aktueller_benutzer_laden};
-use crate::components::Leer;
-use crate::layout::Layout;
+use crate::backend::auth::{Abmelden, Anmelden, Registrieren, aktueller_benutzer_laden};
+use crate::components::anmeldung::{AnmeldeSeite, RegistrierSeite};
+use crate::components::benutzer::BenutzerSeite;
+use crate::components::gemeinsam::Leer;
+use crate::components::kurs::KursSeite;
+use crate::components::layout::Layout;
+use crate::components::mitarbeiter::MitarbeiterSeite;
+use crate::components::termin::TerminSeite;
+use crate::components::uebersicht::Uebersicht;
 use crate::models::Benutzer;
-use crate::pages::anmelden::{AnmeldeSeite, RegistrierSeite};
-use crate::pages::benutzer::BenutzerSeite;
-use crate::pages::kurse::KursSeite;
-use crate::pages::mitarbeiter::MitarbeiterSeite;
-use crate::pages::termine::TerminSeite;
-use crate::pages::uebersicht::Uebersicht;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {

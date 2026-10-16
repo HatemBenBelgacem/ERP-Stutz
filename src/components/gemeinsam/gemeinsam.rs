@@ -11,7 +11,7 @@ pub fn Seitenkopf(titel: &'static str, untertitel: &'static str, children: Child
     view! {
         <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
             <div>
-                <h1 class="text-2xl font-bold">{titel}</h1>
+                <h1 class="text-xl font-bold sm:text-2xl">{titel}</h1>
                 <p class="text-sm text-base-content/60">{untertitel}</p>
             </div>
             <div class="flex gap-2">{children()}</div>
@@ -38,8 +38,8 @@ pub fn Dialog(
     }
 
     view! {
-        <div class="modal" class:modal-open=move || offen.get() role="dialog" aria-modal="true">
-            <div class="modal-box max-w-lg">
+        <div class="modal modal-bottom sm:modal-middle" class:modal-open=move || offen.get() role="dialog" aria-modal="true">
+            <div class="modal-box max-h-[90vh] w-full max-w-lg">
                 <button
                     type="button"
                     class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3"
@@ -82,7 +82,8 @@ pub fn ZeilenAktionen(
     loeschen: impl Fn() + 'static,
 ) -> impl IntoView {
     view! {
-        <div class="flex justify-end gap-1">
+        // Doppelklick auf die Buttons soll nicht zusätzlich die Zeile öffnen
+        <div class="flex justify-end gap-1" on:dblclick=|ev| ev.stop_propagation()>
             <button class="btn btn-ghost btn-sm btn-square" title="Bearbeiten" aria-label="Bearbeiten"
                 on:click=move |_| bearbeiten()>
                 <Icon icon=icondata::LuPencil/>

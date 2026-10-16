@@ -3,8 +3,8 @@ use leptos_icons::Icon;
 use uuid::Uuid;
 
 use crate::app::use_sitzung;
-use crate::auth::{BenutzerLoeschen, BenutzerSpeichern, benutzer_laden};
-use crate::components::{
+use crate::backend::auth::{BenutzerLoeschen, BenutzerSpeichern, benutzer_laden};
+use crate::components::gemeinsam::{
     Dialog, DialogAktionen, Fehlermeldung, Laden, Leer, Seitenkopf, ZeilenAktionen, bestaetigt,
     ergebnis_beobachten, meldung_aus,
 };
@@ -79,22 +79,40 @@ pub fn BenutzerSeite() -> impl IntoView {
                                 <Leer symbol=icondata::LuUserCog text="Noch keine Benutzer."/>
                             }.into_any(),
                             Ok(liste) => view! {
-                                <table class="table">
-                                    <thead><tr><th>"Name"</th><th>"E-Mail"</th><th>"Rolle"</th><th>"Status"</th><th>"Erstellt"</th><th></th></tr></thead>
+                                <table class="table max-sm:table-sm">
+                                    <thead><tr><th>"Name"</th><th class="hidden md:table-cell">"E-Mail"</th><th>"Rolle"</th><th class="hidden sm:table-cell">"Status"</th><th class="hidden lg:table-cell">"Erstellt"</th><th></th></tr></thead>
                                     <tbody>
                                         {liste.into_iter().map(|b| {
                                             let id = b.id;
                                             let zum_bearbeiten = b.clone();
+                                            let bearbeiten = move || {
+                                                let b = zum_bearbeiten.clone();
+                                                bearbeite.set(Some(b.id));
+                                                name.set(b.name);
+                                                email.set(b.email);
+                                                rolle.set(b.rolle);
+                                                aktiv.set(b.aktiv);
+                                                passwort.set(String::new());
+                                                formular_meldung.set(None);
+                                                dialog_offen.set(true);
+                                            };
                                             let ist_admin = b.ist_admin();
                                             view! {
-                                                <tr class="hover:bg-base-200/50">
-                                                    <td class="font-medium">
-                                                        {b.name}
-                                                        <Show when=move || eigene_id() == Some(id)>
-                                                            <span class="badge badge-sm badge-ghost ml-2">"Du"</span>
-                                                        </Show>
+                                                <tr class="cursor-pointer select-none hover:bg-base-200/50" title="Doppelklick zum Bearbeiten"
+                                                    on:dblclick={let bearbeiten = bearbeiten.clone(); move |_| bearbeiten()}>
+                                                    <td>
+                                                        <div class="font-medium">
+                                                            {b.name}
+                                                            <Show when=move || eigene_id() == Some(id)>
+                                                                <span class="badge badge-sm badge-ghost ml-2">"Du"</span>
+                                                            </Show>
+                                                        </div>
+                                                        <div class="text-xs text-base-content/60 break-all md:hidden">{b.email.clone()}</div>
+                                                        {(!b.aktiv).then(|| view! {
+                                                            <span class="badge badge-xs badge-error badge-soft sm:hidden">"Deaktiviert"</span>
+                                                        })}
                                                     </td>
-                                                    <td class="text-base-content/70">{b.email}</td>
+                                                    <td class="hidden text-base-content/70 md:table-cell">{b.email}</td>
                                                     <td>
                                                         {if ist_admin {
                                                             view! {
@@ -107,27 +125,17 @@ pub fn BenutzerSeite() -> impl IntoView {
                                                             view! { <span class="badge badge-ghost">"Benutzer"</span> }.into_any()
                                                         }}
                                                     </td>
-                                                    <td>
+                                                    <td class="hidden sm:table-cell">
                                                         {if b.aktiv {
                                                             view! { <span class="badge badge-success badge-soft">"Aktiv"</span> }.into_any()
                                                         } else {
                                                             view! { <span class="badge badge-error badge-soft">"Deaktiviert"</span> }.into_any()
                                                         }}
                                                     </td>
-                                                    <td class="whitespace-nowrap">{b.erstellt_am.format("%d.%m.%Y").to_string()}</td>
+                                                    <td class="hidden whitespace-nowrap lg:table-cell">{b.erstellt_am.format("%d.%m.%Y").to_string()}</td>
                                                     <td>
                                                         <ZeilenAktionen
-                                                            bearbeiten=move || {
-                                                                let b = zum_bearbeiten.clone();
-                                                                bearbeite.set(Some(b.id));
-                                                                name.set(b.name);
-                                                                email.set(b.email);
-                                                                rolle.set(b.rolle);
-                                                                aktiv.set(b.aktiv);
-                                                                passwort.set(String::new());
-                                                                formular_meldung.set(None);
-                                                                dialog_offen.set(true);
-                                                            }
+                                                            bearbeiten=bearbeiten.clone()
                                                             loeschen=move || {
                                                                 if bestaetigt("Benutzer wirklich löschen?") {
                                                                     loeschen.dispatch(BenutzerLoeschen { id });

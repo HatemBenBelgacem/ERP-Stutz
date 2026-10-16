@@ -8,7 +8,7 @@ async fn main() {
     use weiterbildung::app::*;
 
     dotenvy::dotenv().ok();
-    if let Err(e) = weiterbildung::db::init().await {
+    if let Err(e) = weiterbildung::backend::db::init().await {
         eprintln!("Datenbank konnte nicht initialisiert werden: {e}");
         std::process::exit(1);
     }

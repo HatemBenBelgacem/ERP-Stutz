@@ -20,7 +20,7 @@ pub mod server {
     use leptos::prelude::*;
     use sha2::{Digest, Sha256};
 
-    use crate::db::{fehler, pool};
+    use crate::backend::db::{fehler, pool};
     use crate::models::{Benutzer, PASSWORT_MIN_LAENGE};
 
     const COOKIE_NAME: &str = "weiterbildung_sitzung";
@@ -155,7 +155,7 @@ pub async fn aktueller_benutzer_laden() -> Result<Option<Benutzer>, ServerFnErro
 
 #[server(input = Json)]
 pub async fn anmelden(email: String, passwort: String) -> Result<(), ServerFnError> {
-    use crate::db::{fehler, pool};
+    use crate::backend::db::{fehler, pool};
 
     let zeile: Option<(Uuid, String, bool)> =
         sqlx::query_as("SELECT id, passwort_hash, aktiv FROM benutzer WHERE email = $1")
@@ -183,7 +183,7 @@ pub async fn registrieren(
     passwort: String,
     passwort_wiederholt: String,
 ) -> Result<(), ServerFnError> {
-    use crate::db::{fehler, pool};
+    use crate::backend::db::{fehler, pool};
     use crate::models::{ROLLE_ADMIN, ROLLE_BENUTZER};
 
     let name = name.trim().to_string();
@@ -229,7 +229,7 @@ pub async fn abmelden() -> Result<(), ServerFnError> {
 
 #[server(input = Json)]
 pub async fn benutzer_laden() -> Result<Vec<Benutzer>, ServerFnError> {
-    use crate::db::{fehler, pool};
+    use crate::backend::db::{fehler, pool};
     server::admin_pflicht().await?;
     sqlx::query_as("SELECT id, name, email, rolle, aktiv, erstellt_am FROM benutzer ORDER BY name")
         .fetch_all(pool())
@@ -248,7 +248,7 @@ pub async fn benutzer_speichern(
     aktiv: bool,
     passwort: String,
 ) -> Result<(), ServerFnError> {
-    use crate::db::{fehler, pool};
+    use crate::backend::db::{fehler, pool};
     use crate::models::{ROLLE_ADMIN, ROLLE_BENUTZER};
 
     let ich = server::admin_pflicht().await?;
@@ -327,7 +327,7 @@ pub async fn benutzer_speichern(
 
 #[server(input = Json)]
 pub async fn benutzer_loeschen(id: Uuid) -> Result<(), ServerFnError> {
-    use crate::db::{fehler, pool};
+    use crate::backend::db::{fehler, pool};
     let ich = server::admin_pflicht().await?;
     if id == ich.id {
         return Err(ServerFnError::new("Du kannst dein eigenes Konto nicht löschen."));

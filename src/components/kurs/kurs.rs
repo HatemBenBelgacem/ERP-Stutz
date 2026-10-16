@@ -2,8 +2,8 @@ use leptos::prelude::*;
 use leptos_icons::Icon;
 use uuid::Uuid;
 
-use crate::api::{KursLoeschen, KursSpeichern, kurse_laden};
-use crate::components::{
+use crate::backend::api::{KursLoeschen, KursSpeichern, kurse_laden};
+use crate::components::gemeinsam::{
     Dialog, DialogAktionen, Fehlermeldung, Laden, Leer, Seitenkopf, ZeilenAktionen,
     bestaetigt, ergebnis_beobachten, meldung_aus,
 };
@@ -74,28 +74,33 @@ pub fn KursSeite() -> impl IntoView {
                                 <Leer symbol=icondata::LuBookOpen text="Noch keine Kurse erfasst."/>
                             }.into_any(),
                             Ok(liste) => view! {
-                                <table class="table">
-                                    <thead><tr><th>"Titel"</th><th>"Beschreibung"</th><th>"Dauer"</th><th></th></tr></thead>
+                                <table class="table max-sm:table-sm">
+                                    <thead><tr><th>"Titel"</th><th class="hidden md:table-cell">"Beschreibung"</th><th>"Dauer"</th><th></th></tr></thead>
                                     <tbody>
                                         {liste.into_iter().map(|k| {
                                             let id = k.id;
                                             let zum_bearbeiten = k.clone();
+                                            let bearbeiten = move || {
+                                                let k = zum_bearbeiten.clone();
+                                                bearbeite.set(Some(k.id));
+                                                titel.set(k.titel);
+                                                beschreibung.set(k.beschreibung);
+                                                dauer.set(k.dauer_stunden.to_string());
+                                                formular_meldung.set(None);
+                                                dialog_offen.set(true);
+                                            };
                                             view! {
-                                                <tr class="hover:bg-base-200/50">
-                                                    <td class="font-medium">{k.titel}</td>
-                                                    <td class="max-w-xs truncate text-base-content/70">{k.beschreibung}</td>
-                                                    <td><span class="badge badge-ghost">{k.dauer_stunden}" h"</span></td>
+                                                <tr class="cursor-pointer select-none hover:bg-base-200/50" title="Doppelklick zum Bearbeiten"
+                                                    on:dblclick={let bearbeiten = bearbeiten.clone(); move |_| bearbeiten()}>
+                                                    <td>
+                                                        <div class="font-medium">{k.titel}</div>
+                                                        <div class="max-w-[14rem] truncate text-xs text-base-content/60 md:hidden">{k.beschreibung.clone()}</div>
+                                                    </td>
+                                                    <td class="hidden max-w-xs truncate text-base-content/70 md:table-cell">{k.beschreibung}</td>
+                                                    <td><span class="badge badge-ghost whitespace-nowrap">{k.dauer_stunden}" h"</span></td>
                                                     <td>
                                                         <ZeilenAktionen
-                                                            bearbeiten=move || {
-                                                                let k = zum_bearbeiten.clone();
-                                                                bearbeite.set(Some(k.id));
-                                                                titel.set(k.titel);
-                                                                beschreibung.set(k.beschreibung);
-                                                                dauer.set(k.dauer_stunden.to_string());
-                                                                formular_meldung.set(None);
-                                                                dialog_offen.set(true);
-                                                            }
+                                                            bearbeiten=bearbeiten.clone()
                                                             loeschen=move || {
                                                                 if bestaetigt("Kurs wirklich löschen?") {
                                                                     loeschen.dispatch(KursLoeschen { id });

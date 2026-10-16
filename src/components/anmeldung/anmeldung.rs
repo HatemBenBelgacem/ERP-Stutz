@@ -3,8 +3,8 @@ use leptos_icons::Icon;
 use leptos_router::components::{A, Redirect};
 
 use crate::app::use_sitzung;
-use crate::auth::{Anmelden, Registrieren};
-use crate::components::{Fehlermeldung, ergebnis_beobachten};
+use crate::backend::auth::{Anmelden, Registrieren};
+use crate::components::gemeinsam::{Fehlermeldung, ergebnis_beobachten};
 use crate::models::PASSWORT_MIN_LAENGE;
 
 /// Zentrierte Karte mit Logo für Anmelden und Registrieren. Wer schon
