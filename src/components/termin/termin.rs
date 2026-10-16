@@ -200,16 +200,19 @@ pub fn TerminSeite() -> impl IntoView {
                                                             </button>
                                                         </td>
                                                         <td>
-                                                            <ZeilenAktionen
-                                                                bearbeiten=move || termin_bearbeiten(fuer_button.clone())
-                                                                loeschen=move || {
-                                                                    if bestaetigt("Termin wirklich löschen?") {
-                                                                        loeschen.dispatch(TerminLoeschen { id });
+                                                            <div class="flex justify-end gap-1">
+                                                                <PdfKnopf termin_id=id/>
+                                                                <ZeilenAktionen
+                                                                    bearbeiten=move || termin_bearbeiten(fuer_button.clone())
+                                                                    loeschen=move || {
+                                                                        if bestaetigt("Termin wirklich löschen?") {
+                                                                            loeschen.dispatch(TerminLoeschen { id });
+                                                                        }
                                                                     }
-                                                                }
-                                                                darf_bearbeiten=move || darf_bearbeiten.get()
-                                                                darf_loeschen=move || darf_loeschen.get()
-                                                            />
+                                                                    darf_bearbeiten=move || darf_bearbeiten.get()
+                                                                    darf_loeschen=move || darf_loeschen.get()
+                                                                />
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 }
@@ -430,6 +433,7 @@ fn TeilnehmerPanel(
     let plaetze = format!("{belegt} / {} Plätze", termin.max_teilnehmer);
     let voll = belegt >= termin.max_teilnehmer as usize;
     let zum_bearbeiten = termin.clone();
+    let termin_id = termin.id;
     let bearbeiten = std::sync::Arc::new(bearbeiten);
 
     view! {
@@ -471,18 +475,40 @@ fn TeilnehmerPanel(
                     }.into_any()
                 }}
             </div>
-            <Show when=move || darf_bearbeiten.get()>
-                <div class="border-t border-base-300 p-3">
-                    <button class="btn btn-sm btn-ghost w-full" on:click={
+            <div class="flex gap-2 border-t border-base-300 p-3">
+                <a class="btn btn-sm btn-ghost flex-1" href=pdf_pfad(termin_id) target="_blank" rel="external">
+                    <Icon icon=icondata::LuFileText/>
+                    "Als PDF"
+                </a>
+                <Show when=move || darf_bearbeiten.get()>
+                    <button class="btn btn-sm btn-ghost flex-1" on:click={
                         let bearbeiten = bearbeiten.clone();
                         let termin = zum_bearbeiten.clone();
                         move |_| bearbeiten(termin.clone())
                     }>
                         <Icon icon=icondata::LuPencil/>
-                        "Teilnehmende bearbeiten"
+                        "Bearbeiten"
                     </button>
-                </div>
-            </Show>
+                </Show>
+            </div>
         </div>
+    }
+}
+
+/// Adresse der Teilnehmerliste als PDF (erzeugt vom Server).
+fn pdf_pfad(termin_id: Uuid) -> String {
+    format!("/termine/{termin_id}/teilnehmerliste.pdf")
+}
+
+/// Öffnet die Teilnehmerliste als PDF in einem neuen Tab.
+#[component]
+fn PdfKnopf(termin_id: Uuid) -> impl IntoView {
+    view! {
+        // rel="external": normaler Seitenaufruf statt Router-Navigation
+        <a class="btn btn-ghost btn-sm btn-square" href=pdf_pfad(termin_id) target="_blank" rel="external"
+            title="Teilnehmerliste als PDF" aria-label="Teilnehmerliste als PDF"
+            on:dblclick=|ev| ev.stop_propagation()>
+            <Icon icon=icondata::LuFileText/>
+        </a>
     }
 }

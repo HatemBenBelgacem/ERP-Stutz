@@ -8,4 +8,7 @@ pub mod rollen;
 pub mod microsoft;
 
 #[cfg(feature = "ssr")]
+pub mod pdf;
+
+#[cfg(feature = "ssr")]
 pub mod db;

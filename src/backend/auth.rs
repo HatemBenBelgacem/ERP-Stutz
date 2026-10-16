@@ -154,9 +154,21 @@ pub mod server {
 
     /// Der angemeldete, aktive Benutzer – oder `None`.
     pub async fn aktueller_benutzer() -> Result<Option<Benutzer>, ServerFnError> {
-        let Some(token) = token_aus_cookie().await else {
-            return Ok(None);
-        };
+        match token_aus_cookie().await {
+            Some(token) => benutzer_zum_token(&token).await,
+            None => Ok(None),
+        }
+    }
+
+    /// Wie [`aktueller_benutzer`], aber für eigene Axum-Routen außerhalb von Leptos.
+    pub async fn benutzer_aus_headers(headers: &HeaderMap) -> Result<Option<Benutzer>, ServerFnError> {
+        match cookie_lesen(headers, COOKIE_NAME) {
+            Some(token) => benutzer_zum_token(&token).await,
+            None => Ok(None),
+        }
+    }
+
+    async fn benutzer_zum_token(token: &str) -> Result<Option<Benutzer>, ServerFnError> {
         // Nur feste Spaltenliste eingesetzt, Werte gehen als Parameter
         sqlx::query_as(sqlx::AssertSqlSafe(format!(
             "SELECT {BENUTZER_SPALTEN}

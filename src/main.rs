@@ -26,6 +26,8 @@ async fn main() {
         // Anmeldung mit Microsoft (OAuth-Weiterleitung und Rückkehr)
         .route("/auth/microsoft/start", axum::routing::get(weiterbildung::backend::microsoft::start))
         .route("/auth/microsoft/callback", axum::routing::get(weiterbildung::backend::microsoft::rueckruf))
+        // Teilnehmerliste eines Termins als PDF
+        .route("/termine/{id}/teilnehmerliste.pdf", axum::routing::get(weiterbildung::backend::pdf::teilnehmerliste))
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
             move || shell(leptos_options.clone())
