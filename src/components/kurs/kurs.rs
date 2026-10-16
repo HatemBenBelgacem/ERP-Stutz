@@ -2,14 +2,20 @@ use leptos::prelude::*;
 use leptos_icons::Icon;
 use uuid::Uuid;
 
+use crate::app::use_sitzung;
 use crate::backend::api::{KursLoeschen, KursSpeichern, kurse_laden};
 use crate::components::gemeinsam::{
     Dialog, DialogAktionen, Fehlermeldung, Laden, Leer, Seitenkopf, ZeilenAktionen,
     bestaetigt, ergebnis_beobachten, meldung_aus,
 };
+use crate::models::{Aktion, Bereich};
 
 #[component]
 pub fn KursSeite() -> impl IntoView {
+    let sitzung = use_sitzung();
+    let darf_anlegen = sitzung.recht(Bereich::Kurse, Aktion::Anlegen);
+    let darf_bearbeiten = sitzung.recht(Bereich::Kurse, Aktion::Bearbeiten);
+    let darf_loeschen = sitzung.recht(Bereich::Kurse, Aktion::Loeschen);
     let speichern = ServerAction::<KursSpeichern>::new();
     let loeschen = ServerAction::<KursLoeschen>::new();
     let kurse = Resource::new(
@@ -57,10 +63,12 @@ pub fn KursSeite() -> impl IntoView {
 
     view! {
         <Seitenkopf titel="Kurse" untertitel="Angebotene Weiterbildungen verwalten">
-            <button class="btn btn-primary" on:click=move |_| neu()>
-                <Icon icon=icondata::LuPlus/>
-                "Neuer Kurs"
-            </button>
+            <Show when=move || darf_anlegen.get()>
+                <button class="btn btn-primary" on:click=move |_| neu()>
+                    <Icon icon=icondata::LuPlus/>
+                    "Neuer Kurs"
+                </button>
+            </Show>
         </Seitenkopf>
 
         <Fehlermeldung meldung=listen_meldung/>
@@ -90,8 +98,10 @@ pub fn KursSeite() -> impl IntoView {
                                                 dialog_offen.set(true);
                                             };
                                             view! {
-                                                <tr class="cursor-pointer select-none hover:bg-base-200/50" title="Doppelklick zum Bearbeiten"
-                                                    on:dblclick={let bearbeiten = bearbeiten.clone(); move |_| bearbeiten()}>
+                                                <tr class="select-none hover:bg-base-200/50"
+                                                        class:cursor-pointer=move || darf_bearbeiten.get()
+                                                        title=move || darf_bearbeiten.get().then_some("Doppelklick zum Bearbeiten")
+                                                        on:dblclick={let bearbeiten = bearbeiten.clone(); move |_| if darf_bearbeiten.get_untracked() { bearbeiten() }}>
                                                     <td>
                                                         <div class="font-medium">{k.titel}</div>
                                                         <div class="max-w-[14rem] truncate text-xs text-base-content/60 md:hidden">{k.beschreibung.clone()}</div>
@@ -106,6 +116,8 @@ pub fn KursSeite() -> impl IntoView {
                                                                     loeschen.dispatch(KursLoeschen { id });
                                                                 }
                                                             }
+                                                            darf_bearbeiten=move || darf_bearbeiten.get()
+                                                            darf_loeschen=move || darf_loeschen.get()
                                                         />
                                                     </td>
                                                 </tr>

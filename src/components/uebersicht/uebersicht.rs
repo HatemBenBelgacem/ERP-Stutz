@@ -40,7 +40,7 @@ fn Kachel(bereich: Bereich, wert: i64, symbol: icondata::Icon) -> impl IntoView 
     let titel = bereich.titel();
     let href = bereich.pfad();
     view! {
-        <Show when=move || sitzung.darf(bereich) == Some(true)>
+        <Show when=move || sitzung.sieht(bereich) == Some(true)>
             <div class="card border border-base-300 bg-base-100">
                 <div class="card-body">
                     <div class="flex items-center justify-between">

@@ -80,7 +80,6 @@ fn Sidebar(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl Int
         )
     };
     let sitzung = use_sitzung();
-    let beschriftung = move || beschriftung_klassen(eingeklappt.get());
 
     view! {
         <Show when=move || mobil_offen.get()>
@@ -93,21 +92,22 @@ fn Sidebar(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl Int
                     {NAVIGATION
                         .into_iter()
                         .map(|(bereich, icon)| view! {
-                            <Show when=move || sitzung.darf(bereich) == Some(true)>
+                            <Show when=move || sitzung.sieht(bereich) == Some(true)>
                                 <NavEintrag href=bereich.pfad() text=bereich.titel() icon eingeklappt mobil_offen/>
                             </Show>
                         })
                         .collect_view()}
                 </Transition>
-                <Transition>
-                    <Show when=move || sitzung.ist_admin() == Some(true)>
-                        <li class="menu-title mt-2">
-                            <span class=beschriftung>"Verwaltung"</span>
-                        </li>
-                        <NavEintrag href="/benutzer" text="Benutzer" icon=icondata::LuUserCog eingeklappt mobil_offen/>
-                    </Show>
-                </Transition>
             </ul>
+            // Fusszeile: Einstellungen (Benutzer- und Rollenverwaltung)
+            <Transition>
+                <Show when=move || sitzung.benutzer().is_some_and(|b| b.sieht_einstellungen())>
+                    <ul class="menu mt-auto w-full border-t border-base-300 p-2">
+                        <NavEintrag href="/einstellungen" text="Einstellungen" icon=icondata::LuSettings
+                            exact=false eingeklappt mobil_offen/>
+                    </ul>
+                </Show>
+            </Transition>
         </aside>
     }
 }
@@ -124,13 +124,16 @@ fn NavEintrag(
     icon: icondata::Icon,
     eingeklappt: RwSignal<bool>,
     mobil_offen: RwSignal<bool>,
+    /// `false`: auch auf Unterseiten als aktiv markieren
+    #[prop(default = true)]
+    exact: bool,
 ) -> impl IntoView {
     let beschriftung = move || beschriftung_klassen(eingeklappt.get());
     view! {
         <li on:click=move |_| mobil_offen.set(false)>
             <A
                 href=href
-                exact=true
+                exact=exact
                 attr:class="flex items-center gap-3 whitespace-nowrap aria-[current=page]:bg-primary/10 aria-[current=page]:font-medium aria-[current=page]:text-primary"
                 attr:title=text
             >
@@ -148,7 +151,7 @@ fn Benutzermenue() -> impl IntoView {
     view! {
         <Transition>
             {move || sitzung.benutzer().map(|b| {
-                let rolle = if b.ist_admin() { "Administrator" } else { "Benutzer" };
+                let rolle = b.rolle_name.clone().unwrap_or_else(|| "Keine Rolle".to_string());
                 view! {
                     <div class="dropdown dropdown-end">
                         <div tabindex="0" role="button" class="btn btn-ghost gap-2">

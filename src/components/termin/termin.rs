@@ -2,18 +2,23 @@ use leptos::prelude::*;
 use leptos_icons::Icon;
 use uuid::Uuid;
 
+use crate::app::{Recht, use_sitzung};
 use crate::backend::api::{TerminLoeschen, TerminSpeichern, kurse_laden, mitarbeiter_laden, termine_laden};
 use crate::components::gemeinsam::{
     Dialog, DialogAktionen, Fehlermeldung, Laden, Leer, Seitenkopf, ZeilenAktionen,
     bestaetigt, ergebnis_beobachten, meldung_aus,
 };
-use crate::models::{DATETIME_LOCAL, Mitarbeiter, Termin, TerminEingabe};
+use crate::models::{Aktion, Bereich, DATETIME_LOCAL, Mitarbeiter, Termin, TerminEingabe};
 
 const ANZEIGE_DATUM: &str = "%d.%m.%Y";
 const ANZEIGE_ZEIT: &str = "%H:%M";
 
 #[component]
 pub fn TerminSeite() -> impl IntoView {
+    let sitzung = use_sitzung();
+    let darf_anlegen = sitzung.recht(Bereich::Termine, Aktion::Anlegen);
+    let darf_bearbeiten = sitzung.recht(Bereich::Termine, Aktion::Bearbeiten);
+    let darf_loeschen = sitzung.recht(Bereich::Termine, Aktion::Loeschen);
     let speichern = ServerAction::<TerminSpeichern>::new();
     let loeschen = ServerAction::<TerminLoeschen>::new();
     let termine = Resource::new(
@@ -107,10 +112,12 @@ pub fn TerminSeite() -> impl IntoView {
 
     view! {
         <Seitenkopf titel="Termine" untertitel="Kursdurchführungen und ihre Teilnehmenden">
-            <button class="btn btn-primary" on:click=move |_| neu()>
-                <Icon icon=icondata::LuPlus/>
-                "Neuer Termin"
-            </button>
+            <Show when=move || darf_anlegen.get()>
+                <button class="btn btn-primary" on:click=move |_| neu()>
+                    <Icon icon=icondata::LuPlus/>
+                    "Neuer Termin"
+                </button>
+            </Show>
         </Seitenkopf>
 
         <Fehlermeldung meldung=listen_meldung/>
@@ -156,10 +163,13 @@ pub fn TerminSeite() -> impl IntoView {
                                                 let plaetze = format!("{belegt} / {}", t.max_teilnehmer);
                                                 let ist_offen = move || panel_termin.get() == Some(id);
                                                 view! {
-                                                    <tr class="cursor-pointer select-none hover:bg-base-200/50"
+                                                    <tr class="select-none hover:bg-base-200/50"
                                                         class=("bg-primary/5", ist_offen)
-                                                        title="Doppelklick zum Bearbeiten"
-                                                        on:dblclick=move |_| termin_bearbeiten(fuer_doppelklick.clone())>
+                                                        class:cursor-pointer=move || darf_bearbeiten.get()
+                                                        title=move || darf_bearbeiten.get().then_some("Doppelklick zum Bearbeiten")
+                                                        on:dblclick=move |_| if darf_bearbeiten.get_untracked() {
+                                                            termin_bearbeiten(fuer_doppelklick.clone())
+                                                        }>
                                                         <td>
                                                             <div class="font-medium">{t.kurs_titel}</div>
                                                             // Auf kleinen Bildschirmen steht der Ort unter dem Kurs
@@ -197,6 +207,8 @@ pub fn TerminSeite() -> impl IntoView {
                                                                         loeschen.dispatch(TerminLoeschen { id });
                                                                     }
                                                                 }
+                                                                darf_bearbeiten=move || darf_bearbeiten.get()
+                                                                darf_loeschen=move || darf_loeschen.get()
                                                             />
                                                         </td>
                                                     </tr>
@@ -223,6 +235,7 @@ pub fn TerminSeite() -> impl IntoView {
                             termin=t
                             schliessen=move || panel_termin.set(None)
                             bearbeiten=move |t| termin_bearbeiten(t)
+                            darf_bearbeiten
                         />
                     </aside>
                 })}
@@ -409,13 +422,15 @@ fn MitarbeiterAuswahl(
 fn TeilnehmerPanel(
     termin: Termin,
     schliessen: impl Fn() + Copy + 'static,
-    bearbeiten: impl Fn(Termin) + 'static,
+    bearbeiten: impl Fn(Termin) + Send + Sync + 'static,
+    darf_bearbeiten: Recht,
 ) -> impl IntoView {
     let belegt = termin.mitarbeiter.len();
     let datum = termin.beginn.format(ANZEIGE_DATUM).to_string();
     let plaetze = format!("{belegt} / {} Plätze", termin.max_teilnehmer);
     let voll = belegt >= termin.max_teilnehmer as usize;
     let zum_bearbeiten = termin.clone();
+    let bearbeiten = std::sync::Arc::new(bearbeiten);
 
     view! {
         <div class="flex h-full flex-col overflow-hidden border-base-300 bg-base-100 shadow-xl sm:border-l xl:h-auto xl:max-h-[calc(100vh-8rem)] xl:rounded-box xl:border xl:shadow-none">
@@ -456,12 +471,18 @@ fn TeilnehmerPanel(
                     }.into_any()
                 }}
             </div>
-            <div class="border-t border-base-300 p-3">
-                <button class="btn btn-sm btn-ghost w-full" on:click=move |_| bearbeiten(zum_bearbeiten.clone())>
-                    <Icon icon=icondata::LuPencil/>
-                    "Teilnehmende bearbeiten"
-                </button>
-            </div>
+            <Show when=move || darf_bearbeiten.get()>
+                <div class="border-t border-base-300 p-3">
+                    <button class="btn btn-sm btn-ghost w-full" on:click={
+                        let bearbeiten = bearbeiten.clone();
+                        let termin = zum_bearbeiten.clone();
+                        move |_| bearbeiten(termin.clone())
+                    }>
+                        <Icon icon=icondata::LuPencil/>
+                        "Teilnehmende bearbeiten"
+                    </button>
+                </div>
+            </Show>
         </div>
     }
 }

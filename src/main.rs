@@ -23,6 +23,9 @@ async fn main() {
     let routes = generate_route_list(App);
 
     let app = Router::new()
+        // Anmeldung mit Microsoft (OAuth-Weiterleitung und Rückkehr)
+        .route("/auth/microsoft/start", axum::routing::get(weiterbildung::backend::microsoft::start))
+        .route("/auth/microsoft/callback", axum::routing::get(weiterbildung::backend::microsoft::rueckruf))
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
             move || shell(leptos_options.clone())

@@ -1,19 +1,21 @@
 use leptos::prelude::*;
 use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
 use leptos_router::StaticSegment;
-use leptos_router::components::{ProtectedParentRoute, ProtectedRoute, Route, Router, Routes};
+use leptos_router::components::{ParentRoute, ProtectedParentRoute, Redirect, Route, Router, Routes};
 
 use crate::backend::auth::{Abmelden, Anmelden, Registrieren, aktueller_benutzer_laden};
 use crate::components::anmeldung::{AnmeldeSeite, RegistrierSeite};
 use crate::components::benutzer::BenutzerSeite;
+use crate::components::einstellungen::{EinstellungenSeite, EinstellungenStart};
 use crate::components::gemeinsam::Leer;
+use crate::components::kein_zugriff::KeinZugriff;
 use crate::components::kurs::KursSeite;
 use crate::components::layout::Layout;
 use crate::components::mitarbeiter::MitarbeiterSeite;
+use crate::components::rolle::RollenSeite;
 use crate::components::termin::TerminSeite;
 use crate::components::uebersicht::Uebersicht;
-use crate::components::kein_zugriff::KeinZugriff;
-use crate::models::{Benutzer, Bereich};
+use crate::models::{Aktion, Benutzer, Bereich};
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -53,13 +55,18 @@ impl Sitzung {
         self.benutzer.get().map(|r| matches!(r, Ok(Some(_))))
     }
 
-    pub fn ist_admin(&self) -> Option<bool> {
-        self.benutzer.get().map(|r| matches!(r, Ok(Some(b)) if b.ist_admin()))
+    /// `None` = lädt noch, sonst ob der Benutzer die Funktion nutzen darf.
+    pub fn darf(&self, bereich: Bereich, aktion: Aktion) -> Option<bool> {
+        self.benutzer.get().map(|r| matches!(r, Ok(Some(b)) if b.darf(bereich, aktion)))
     }
 
-    /// `None` = lädt noch, sonst ob der Bereich freigegeben ist.
-    pub fn darf(&self, bereich: Bereich) -> Option<bool> {
-        self.benutzer.get().map(|r| matches!(r, Ok(Some(b)) if b.darf(bereich)))
+    pub fn sieht(&self, bereich: Bereich) -> Option<bool> {
+        self.darf(bereich, Aktion::Sehen)
+    }
+
+    /// Für Buttons: ein Recht, das reaktiv abgefragt werden kann.
+    pub fn recht(self, bereich: Bereich, aktion: Aktion) -> Recht {
+        Recht { sitzung: self, bereich, aktion }
     }
 
     /// Wohin umgeleitet wird, wenn eine Seite nicht erlaubt ist.
@@ -67,6 +74,29 @@ impl Sitzung {
         self.benutzer()
             .map(|b| b.startseite().to_string())
             .unwrap_or_else(|| "/anmelden".to_string())
+    }
+}
+
+/// Ein Recht des angemeldeten Benutzers. Liest direkt den Anmeldezustand der
+/// App, damit es auch beim Abbau einer Seite (z. B. nach dem Abmelden) gültig bleibt.
+#[derive(Clone, Copy)]
+pub struct Recht {
+    sitzung: Sitzung,
+    bereich: Bereich,
+    aktion: Aktion,
+}
+
+impl Recht {
+    /// `true` nur, wenn das Recht sicher vorhanden ist (reaktiv).
+    pub fn get(&self) -> bool {
+        self.sitzung.darf(self.bereich, self.aktion) == Some(true)
+    }
+
+    pub fn get_untracked(&self) -> bool {
+        self.sitzung
+            .benutzer
+            .get_untracked()
+            .is_some_and(|r| matches!(r, Ok(Some(b)) if b.darf(self.bereich, self.aktion)))
     }
 }
 
@@ -102,40 +132,56 @@ pub fn App() -> impl IntoView {
                     condition=move || sitzung.angemeldet()
                     redirect_path=|| "/anmelden"
                 >
-                    // Jeder Bereich nur mit Berechtigung, sonst zur ersten erlaubten Seite
-                    <ProtectedRoute
+                    // Jeder Bereich nur mit dem Recht „Sehen“ (siehe Bereichsschutz)
+                    <Route
                         path=StaticSegment("")
-                        view=Uebersicht
-                        condition=move || sitzung.darf(Bereich::Uebersicht)
-                        redirect_path=move || sitzung.startseite()
+                        view=|| view! { <Bereichsschutz bereich=Bereich::Uebersicht><Uebersicht/></Bereichsschutz> }
                     />
-                    <ProtectedRoute
+                    <Route
                         path=StaticSegment("kurse")
-                        view=KursSeite
-                        condition=move || sitzung.darf(Bereich::Kurse)
-                        redirect_path=move || sitzung.startseite()
+                        view=|| view! { <Bereichsschutz bereich=Bereich::Kurse><KursSeite/></Bereichsschutz> }
                     />
-                    <ProtectedRoute
+                    <Route
                         path=StaticSegment("mitarbeiter")
-                        view=MitarbeiterSeite
-                        condition=move || sitzung.darf(Bereich::Mitarbeiter)
-                        redirect_path=move || sitzung.startseite()
+                        view=|| view! { <Bereichsschutz bereich=Bereich::Mitarbeiter><MitarbeiterSeite/></Bereichsschutz> }
                     />
-                    <ProtectedRoute
+                    <Route
                         path=StaticSegment("termine")
-                        view=TerminSeite
-                        condition=move || sitzung.darf(Bereich::Termine)
-                        redirect_path=move || sitzung.startseite()
+                        view=|| view! { <Bereichsschutz bereich=Bereich::Termine><TerminSeite/></Bereichsschutz> }
                     />
+                    <ParentRoute path=StaticSegment("einstellungen") view=EinstellungenSeite>
+                        <Route path=StaticSegment("") view=EinstellungenStart/>
+                        <Route
+                            path=StaticSegment("benutzer")
+                            view=|| view! { <Bereichsschutz bereich=Bereich::Benutzer><BenutzerSeite/></Bereichsschutz> }
+                        />
+                        <Route
+                            path=StaticSegment("rollen")
+                            view=|| view! { <Bereichsschutz bereich=Bereich::Rollen><RollenSeite/></Bereichsschutz> }
+                        />
+                    </ParentRoute>
                     <Route path=StaticSegment("kein-zugriff") view=KeinZugriff/>
-                    <ProtectedRoute
-                        path=StaticSegment("benutzer")
-                        view=BenutzerSeite
-                        condition=move || sitzung.ist_admin()
-                        redirect_path=move || sitzung.startseite()
-                    />
                 </ProtectedParentRoute>
             </Routes>
         </Router>
+    }
+}
+
+/// Zeigt die Seite nur mit dem Recht „Sehen“ für den Bereich, sonst geht es
+/// zur ersten erlaubten Seite. Ist niemand angemeldet, übernimmt die äussere
+/// Route die Weiterleitung zur Anmeldung – so leitet nach dem Abmelden nur
+/// eine Stelle weiter.
+#[component]
+fn Bereichsschutz(bereich: Bereich, children: ChildrenFn) -> impl IntoView {
+    let sitzung = use_sitzung();
+    let zugang = Memo::new(move |_| sitzung.benutzer().map(|b| (b.sieht(bereich), b.startseite())));
+    view! {
+        <Transition>
+            {move || match zugang.get() {
+                Some((true, _)) => children().into_any(),
+                Some((false, startseite)) => view! { <Redirect path=startseite/> }.into_any(),
+                None => ().into_any(),
+            }}
+        </Transition>
     }
 }

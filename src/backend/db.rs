@@ -36,6 +36,14 @@ pub fn fehler(e: sqlx::Error) -> ServerFnError {
                     "Der Kurs kann nicht gelöscht werden, solange noch Termine existieren.",
                 );
             }
+            Some("23503") if db.constraint() == Some("benutzer_rolle_id_fkey") => {
+                return ServerFnError::new(
+                    "Die Rolle kann nicht gelöscht werden, solange ihr noch Benutzer zugewiesen sind.",
+                );
+            }
+            Some("23505") if db.constraint() == Some("rolle_name_key") => {
+                return ServerFnError::new("Eine Rolle mit diesem Namen gibt es bereits.");
+            }
             Some("23514") => {
                 return ServerFnError::new("Die Eingaben verletzen eine Prüfregel der Datenbank.");
             }

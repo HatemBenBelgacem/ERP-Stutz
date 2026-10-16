@@ -57,51 +57,84 @@ pub struct TerminEingabe {
 /// Format für `<input type="datetime-local">`.
 pub const DATETIME_LOCAL: &str = "%Y-%m-%dT%H:%M";
 
-/// Benutzerkonto (ohne Passwort-Hash – der verlässt den Server nie).
+/// Benutzerkonto (ohne Passwort-Hash – der verlässt den Server nie),
+/// inklusive der Rechte aus seiner Rolle.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
 pub struct Benutzer {
     pub id: Uuid,
     pub name: String,
     pub email: String,
-    pub rolle: String,
     pub aktiv: bool,
     pub erstellt_am: NaiveDateTime,
-    /// Schlüssel der freigegebenen Bereiche, siehe [`Bereich`]
-    pub berechtigungen: Vec<String>,
+    pub rolle_id: Option<Uuid>,
+    pub rolle_name: Option<String>,
+    pub ist_admin: bool,
+    /// Rechte der Rolle, z. B. `termine.bearbeiten`
+    pub rechte: Vec<String>,
+    /// Konto ist mit einem Microsoft-Konto verknüpft
+    pub microsoft: bool,
 }
 
 impl Benutzer {
-    pub fn ist_admin(&self) -> bool {
-        self.rolle == ROLLE_ADMIN
+    /// Admins dürfen alles, alle anderen nur, was ihre Rolle erlaubt.
+    pub fn darf(&self, bereich: Bereich, aktion: Aktion) -> bool {
+        self.ist_admin || self.rechte.iter().any(|r| *r == recht(bereich, aktion))
     }
 
-    /// Admins dürfen alles, alle anderen nur ihre freigegebenen Bereiche.
-    pub fn darf(&self, bereich: Bereich) -> bool {
-        self.ist_admin() || self.berechtigungen.iter().any(|b| b == bereich.schluessel())
+    pub fn sieht(&self, bereich: Bereich) -> bool {
+        self.darf(bereich, Aktion::Sehen)
+    }
+
+    pub fn sieht_einstellungen(&self) -> bool {
+        Bereich::EINSTELLUNGEN.into_iter().any(|b| self.sieht(b))
     }
 
     /// Erste Seite, die der Benutzer öffnen darf.
     pub fn startseite(&self) -> &'static str {
-        Bereich::ALLE
+        Bereich::HAUPTBEREICHE
             .into_iter()
-            .find(|b| self.darf(*b))
+            .chain(Bereich::EINSTELLUNGEN)
+            .find(|b| self.sieht(*b))
             .map(Bereich::pfad)
             .unwrap_or(PFAD_KEIN_ZUGRIFF)
     }
 }
 
-/// Bereiche der App, die sich pro Benutzer freigeben lassen.
+/// Rolle mit ihren Rechten.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct Rolle {
+    pub id: Uuid,
+    pub name: String,
+    pub beschreibung: String,
+    pub ist_admin: bool,
+    pub rechte: Vec<String>,
+    pub anzahl_benutzer: i64,
+}
+
+/// Bereiche der App. Die letzten beiden liegen unter „Einstellungen“.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Bereich {
     Uebersicht,
     Termine,
     Kurse,
     Mitarbeiter,
+    Benutzer,
+    Rollen,
 }
 
 impl Bereich {
-    pub const ALLE: [Bereich; 4] = [Bereich::Uebersicht, Bereich::Termine, Bereich::Kurse, Bereich::Mitarbeiter];
+    pub const HAUPTBEREICHE: [Bereich; 4] = [Bereich::Uebersicht, Bereich::Termine, Bereich::Kurse, Bereich::Mitarbeiter];
+    pub const EINSTELLUNGEN: [Bereich; 2] = [Bereich::Benutzer, Bereich::Rollen];
+    pub const ALLE: [Bereich; 6] = [
+        Bereich::Uebersicht,
+        Bereich::Termine,
+        Bereich::Kurse,
+        Bereich::Mitarbeiter,
+        Bereich::Benutzer,
+        Bereich::Rollen,
+    ];
 
     /// Wert in der Datenbank
     pub fn schluessel(self) -> &'static str {
@@ -110,6 +143,8 @@ impl Bereich {
             Bereich::Termine => "termine",
             Bereich::Kurse => "kurse",
             Bereich::Mitarbeiter => "mitarbeiter",
+            Bereich::Benutzer => "benutzer",
+            Bereich::Rollen => "rollen",
         }
     }
 
@@ -119,6 +154,8 @@ impl Bereich {
             Bereich::Termine => "Termine",
             Bereich::Kurse => "Kurse",
             Bereich::Mitarbeiter => "Mitarbeiter",
+            Bereich::Benutzer => "Benutzer",
+            Bereich::Rollen => "Rollen",
         }
     }
 
@@ -128,16 +165,63 @@ impl Bereich {
             Bereich::Termine => "/termine",
             Bereich::Kurse => "/kurse",
             Bereich::Mitarbeiter => "/mitarbeiter",
+            Bereich::Benutzer => "/einstellungen/benutzer",
+            Bereich::Rollen => "/einstellungen/rollen",
         }
     }
 
-    pub fn aus_schluessel(schluessel: &str) -> Option<Bereich> {
-        Bereich::ALLE.into_iter().find(|b| b.schluessel() == schluessel)
+    /// Funktionen, die sich in diesem Bereich berechtigen lassen.
+    pub fn aktionen(self) -> &'static [Aktion] {
+        match self {
+            Bereich::Uebersicht => &[Aktion::Sehen],
+            _ => &Aktion::ALLE,
+        }
     }
 }
 
-pub const PFAD_KEIN_ZUGRIFF: &str = "/kein-zugriff";
+/// Funktionen, die pro Bereich berechtigt werden.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Aktion {
+    Sehen,
+    Anlegen,
+    Bearbeiten,
+    Loeschen,
+}
 
-pub const ROLLE_ADMIN: &str = "admin";
-pub const ROLLE_BENUTZER: &str = "benutzer";
+impl Aktion {
+    pub const ALLE: [Aktion; 4] = [Aktion::Sehen, Aktion::Anlegen, Aktion::Bearbeiten, Aktion::Loeschen];
+
+    pub fn schluessel(self) -> &'static str {
+        match self {
+            Aktion::Sehen => "sehen",
+            Aktion::Anlegen => "anlegen",
+            Aktion::Bearbeiten => "bearbeiten",
+            Aktion::Loeschen => "loeschen",
+        }
+    }
+
+    pub fn titel(self) -> &'static str {
+        match self {
+            Aktion::Sehen => "Sehen",
+            Aktion::Anlegen => "Anlegen",
+            Aktion::Bearbeiten => "Bearbeiten",
+            Aktion::Loeschen => "Löschen",
+        }
+    }
+}
+
+/// Schlüssel eines Rechts, z. B. `termine.bearbeiten`.
+pub fn recht(bereich: Bereich, aktion: Aktion) -> String {
+    format!("{}.{}", bereich.schluessel(), aktion.schluessel())
+}
+
+/// Alle Rechte, die es gibt.
+pub fn alle_rechte() -> Vec<String> {
+    Bereich::ALLE
+        .into_iter()
+        .flat_map(|b| b.aktionen().iter().map(move |a| recht(b, *a)))
+        .collect()
+}
+
+pub const PFAD_KEIN_ZUGRIFF: &str = "/kein-zugriff";
 pub const PASSWORT_MIN_LAENGE: usize = 8;

@@ -24,6 +24,9 @@ pub fn Seitenkopf(titel: &'static str, untertitel: &'static str, children: Child
 pub fn Dialog(
     offen: RwSignal<bool>,
     #[prop(into)] titel: Signal<String>,
+    /// Maximale Breite des Fensters (Tailwind-Klasse)
+    #[prop(default = "max-w-lg")]
+    breite: &'static str,
     children: Children,
 ) -> impl IntoView {
     // Escape schliesst den Dialog (nur im Browser).
@@ -39,7 +42,7 @@ pub fn Dialog(
 
     view! {
         <div class="modal modal-bottom sm:modal-middle" class:modal-open=move || offen.get() role="dialog" aria-modal="true">
-            <div class="modal-box max-h-[90vh] w-full max-w-lg">
+            <div class=format!("modal-box max-h-[90vh] w-full {breite}")>
                 <button
                     type="button"
                     class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3"
@@ -75,23 +78,32 @@ pub fn DialogAktionen(offen: RwSignal<bool>, #[prop(into)] beschaeftigt: Signal<
     }
 }
 
-/// Icon-Buttons „Bearbeiten“ und „Löschen“ für eine Tabellenzeile.
+/// Icon-Buttons „Bearbeiten“ und „Löschen“ für eine Tabellenzeile; jeder
+/// Button erscheint nur mit dem passenden Recht.
 #[component]
 pub fn ZeilenAktionen(
-    bearbeiten: impl Fn() + 'static,
-    loeschen: impl Fn() + 'static,
+    bearbeiten: impl Fn() + Send + Sync + 'static,
+    loeschen: impl Fn() + Send + Sync + 'static,
+    darf_bearbeiten: impl Fn() -> bool + Copy + Send + Sync + 'static,
+    darf_loeschen: impl Fn() -> bool + Copy + Send + Sync + 'static,
 ) -> impl IntoView {
+    let bearbeiten = std::sync::Arc::new(bearbeiten);
+    let loeschen = std::sync::Arc::new(loeschen);
     view! {
         // Doppelklick auf die Buttons soll nicht zusätzlich die Zeile öffnen
         <div class="flex justify-end gap-1" on:dblclick=|ev| ev.stop_propagation()>
-            <button class="btn btn-ghost btn-sm btn-square" title="Bearbeiten" aria-label="Bearbeiten"
-                on:click=move |_| bearbeiten()>
-                <Icon icon=icondata::LuPencil/>
-            </button>
-            <button class="btn btn-ghost btn-sm btn-square text-error" title="Löschen" aria-label="Löschen"
-                on:click=move |_| loeschen()>
-                <Icon icon=icondata::LuTrash2/>
-            </button>
+            <Show when=darf_bearbeiten>
+                <button class="btn btn-ghost btn-sm btn-square" title="Bearbeiten" aria-label="Bearbeiten"
+                    on:click={let bearbeiten = bearbeiten.clone(); move |_| bearbeiten()}>
+                    <Icon icon=icondata::LuPencil/>
+                </button>
+            </Show>
+            <Show when=darf_loeschen>
+                <button class="btn btn-ghost btn-sm btn-square text-error" title="Löschen" aria-label="Löschen"
+                    on:click={let loeschen = loeschen.clone(); move |_| loeschen()}>
+                    <Icon icon=icondata::LuTrash2/>
+                </button>
+            </Show>
         </div>
     }
 }

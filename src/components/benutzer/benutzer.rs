@@ -4,30 +4,37 @@ use uuid::Uuid;
 
 use crate::app::use_sitzung;
 use crate::backend::auth::{BenutzerLoeschen, BenutzerSpeichern, benutzer_laden};
+use crate::backend::rollen::rollen_laden;
 use crate::components::gemeinsam::{
     Dialog, DialogAktionen, Fehlermeldung, Laden, Leer, Seitenkopf, ZeilenAktionen, bestaetigt,
     ergebnis_beobachten, meldung_aus,
 };
-use crate::models::{Bereich, PASSWORT_MIN_LAENGE, ROLLE_ADMIN, ROLLE_BENUTZER};
+use crate::models::{Aktion, Benutzer, Bereich, PASSWORT_MIN_LAENGE};
 
 #[component]
 pub fn BenutzerSeite() -> impl IntoView {
     let sitzung = use_sitzung();
+    let darf_anlegen = sitzung.recht(Bereich::Benutzer, Aktion::Anlegen);
+    let darf_bearbeiten = sitzung.recht(Bereich::Benutzer, Aktion::Bearbeiten);
+    let darf_loeschen = sitzung.recht(Bereich::Benutzer, Aktion::Loeschen);
+
     let speichern = ServerAction::<BenutzerSpeichern>::new();
     let loeschen = ServerAction::<BenutzerLoeschen>::new();
     let benutzer = Resource::new(
         move || (speichern.version().get(), loeschen.version().get()),
         |_| benutzer_laden(),
     );
+    let rollen = Resource::new(|| (), |_| rollen_laden());
 
     let dialog_offen = RwSignal::new(false);
     let bearbeite = RwSignal::new(None::<Uuid>);
     let name = RwSignal::new(String::new());
     let email = RwSignal::new(String::new());
-    let rolle = RwSignal::new(ROLLE_BENUTZER.to_string());
+    // Leerer Text = keine Rolle
+    let rolle_id = RwSignal::new(String::new());
     let aktiv = RwSignal::new(true);
     let passwort = RwSignal::new(String::new());
-    let berechtigungen = RwSignal::new(alle_bereiche());
+    let microsoft = RwSignal::new(false);
     let formular_meldung = RwSignal::new(None::<String>);
     let listen_meldung = RwSignal::new(None::<String>);
 
@@ -35,10 +42,21 @@ pub fn BenutzerSeite() -> impl IntoView {
         bearbeite.set(None);
         name.set(String::new());
         email.set(String::new());
-        rolle.set(ROLLE_BENUTZER.to_string());
+        rolle_id.set(String::new());
         aktiv.set(true);
         passwort.set(String::new());
-        berechtigungen.set(alle_bereiche());
+        microsoft.set(false);
+        formular_meldung.set(None);
+        dialog_offen.set(true);
+    };
+    let benutzer_bearbeiten = move |b: Benutzer| {
+        bearbeite.set(Some(b.id));
+        name.set(b.name);
+        email.set(b.email);
+        rolle_id.set(b.rolle_id.map(|r| r.to_string()).unwrap_or_default());
+        aktiv.set(b.aktiv);
+        passwort.set(String::new());
+        microsoft.set(b.microsoft);
         formular_meldung.set(None);
         dialog_offen.set(true);
     };
@@ -51,10 +69,9 @@ pub fn BenutzerSeite() -> impl IntoView {
             id: bearbeite.get_untracked(),
             name: name.get_untracked(),
             email: email.get_untracked(),
-            rolle: rolle.get_untracked(),
+            rolle_id: rolle_id.get_untracked().parse().ok(),
             aktiv: aktiv.get_untracked(),
             passwort: passwort.get_untracked(),
-            berechtigungen: berechtigungen.get_untracked(),
         });
     };
 
@@ -64,11 +81,13 @@ pub fn BenutzerSeite() -> impl IntoView {
     let eigene_id = move || sitzung.benutzer().map(|b| b.id);
 
     view! {
-        <Seitenkopf titel="Benutzer" untertitel="Konten, Rollen und Zugänge verwalten">
-            <button class="btn btn-primary" on:click=move |_| neu()>
-                <Icon icon=icondata::LuUserPlus/>
-                "Neuer Benutzer"
-            </button>
+        <Seitenkopf titel="Benutzer" untertitel="Konten, ihre Rolle und ihr Status">
+            <Show when=move || darf_anlegen.get()>
+                <button class="btn btn-primary" on:click=move |_| neu()>
+                    <Icon icon=icondata::LuUserPlus/>
+                    "Neuer Benutzer"
+                </button>
+            </Show>
         </Seitenkopf>
 
         <Fehlermeldung meldung=listen_meldung/>
@@ -83,34 +102,39 @@ pub fn BenutzerSeite() -> impl IntoView {
                             }.into_any(),
                             Ok(liste) => view! {
                                 <table class="table max-sm:table-sm">
-                                    <thead><tr><th>"Name"</th><th class="hidden md:table-cell">"E-Mail"</th><th>"Rolle"</th><th class="hidden sm:table-cell">"Status"</th><th class="hidden xl:table-cell">"Zugriff"</th><th class="hidden lg:table-cell">"Erstellt"</th><th></th></tr></thead>
+                                    <thead>
+                                        <tr>
+                                            <th>"Name"</th>
+                                            <th class="hidden md:table-cell">"E-Mail"</th>
+                                            <th>"Rolle"</th>
+                                            <th class="hidden sm:table-cell">"Status"</th>
+                                            <th class="hidden lg:table-cell">"Erstellt"</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
                                     <tbody>
                                         {liste.into_iter().map(|b| {
                                             let id = b.id;
-                                            let zum_bearbeiten = b.clone();
-                                            let bearbeiten = move || {
-                                                let b = zum_bearbeiten.clone();
-                                                bearbeite.set(Some(b.id));
-                                                name.set(b.name);
-                                                email.set(b.email);
-                                                rolle.set(b.rolle);
-                                                aktiv.set(b.aktiv);
-                                                berechtigungen.set(b.berechtigungen);
-                                                passwort.set(String::new());
-                                                formular_meldung.set(None);
-                                                dialog_offen.set(true);
-                                            };
-                                            let ist_admin = b.ist_admin();
-                                            let fuer_badges = b.clone();
+                                            let fuer_doppelklick = b.clone();
+                                            let fuer_button = b.clone();
                                             view! {
-                                                <tr class="cursor-pointer select-none hover:bg-base-200/50" title="Doppelklick zum Bearbeiten"
-                                                    on:dblclick={let bearbeiten = bearbeiten.clone(); move |_| bearbeiten()}>
+                                                <tr class="select-none hover:bg-base-200/50"
+                                                    class:cursor-pointer=move || darf_bearbeiten.get()
+                                                    title=move || darf_bearbeiten.get().then_some("Doppelklick zum Bearbeiten")
+                                                    on:dblclick=move |_| if darf_bearbeiten.get_untracked() {
+                                                        benutzer_bearbeiten(fuer_doppelklick.clone())
+                                                    }>
                                                     <td>
-                                                        <div class="font-medium">
+                                                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium">
                                                             {b.name}
                                                             <Show when=move || eigene_id() == Some(id)>
-                                                                <span class="badge badge-sm badge-ghost ml-2">"Du"</span>
+                                                                <span class="badge badge-sm badge-ghost">"Du"</span>
                                                             </Show>
+                                                            {b.microsoft.then(|| view! {
+                                                                <span class="badge badge-sm badge-info badge-soft" title="Meldet sich mit Microsoft an">
+                                                                    "Microsoft"
+                                                                </span>
+                                                            })}
                                                         </div>
                                                         <div class="text-xs text-base-content/60 break-all md:hidden">{b.email.clone()}</div>
                                                         {(!b.aktiv).then(|| view! {
@@ -118,18 +142,7 @@ pub fn BenutzerSeite() -> impl IntoView {
                                                         })}
                                                     </td>
                                                     <td class="hidden text-base-content/70 md:table-cell">{b.email}</td>
-                                                    <td>
-                                                        {if ist_admin {
-                                                            view! {
-                                                                <span class="badge badge-primary badge-soft gap-1">
-                                                                    <Icon icon=icondata::LuShieldCheck width="0.85rem" height="0.85rem"/>
-                                                                    "Admin"
-                                                                </span>
-                                                            }.into_any()
-                                                        } else {
-                                                            view! { <span class="badge badge-ghost">"Benutzer"</span> }.into_any()
-                                                        }}
-                                                    </td>
+                                                    <td><RollenBadge ist_admin=b.ist_admin name=b.rolle_name/></td>
                                                     <td class="hidden sm:table-cell">
                                                         {if b.aktiv {
                                                             view! { <span class="badge badge-success badge-soft">"Aktiv"</span> }.into_any()
@@ -137,18 +150,17 @@ pub fn BenutzerSeite() -> impl IntoView {
                                                             view! { <span class="badge badge-error badge-soft">"Deaktiviert"</span> }.into_any()
                                                         }}
                                                     </td>
-                                                    <td class="hidden xl:table-cell">
-                                                        <ZugriffBadges benutzer=fuer_badges/>
-                                                    </td>
                                                     <td class="hidden whitespace-nowrap lg:table-cell">{b.erstellt_am.format("%d.%m.%Y").to_string()}</td>
                                                     <td>
                                                         <ZeilenAktionen
-                                                            bearbeiten=bearbeiten.clone()
+                                                            bearbeiten=move || benutzer_bearbeiten(fuer_button.clone())
                                                             loeschen=move || {
                                                                 if bestaetigt("Benutzer wirklich löschen?") {
                                                                     loeschen.dispatch(BenutzerLoeschen { id });
                                                                 }
                                                             }
+                                                            darf_bearbeiten=move || darf_bearbeiten.get()
+                                                            darf_loeschen=move || darf_loeschen.get()
                                                         />
                                                     </td>
                                                 </tr>
@@ -178,10 +190,21 @@ pub fn BenutzerSeite() -> impl IntoView {
                 <div class="grid gap-x-4 sm:grid-cols-2">
                     <fieldset class="fieldset">
                         <legend class="fieldset-legend">"Rolle"</legend>
-                        <select class="select w-full" on:change:target=move |ev| rolle.set(ev.target().value())>
-                            <option value=ROLLE_BENUTZER selected=move || rolle.get() == ROLLE_BENUTZER>"Benutzer"</option>
-                            <option value=ROLLE_ADMIN selected=move || rolle.get() == ROLLE_ADMIN>"Admin"</option>
+                        <select class="select w-full" on:change:target=move |ev| rolle_id.set(ev.target().value())>
+                            <option value="" selected=move || rolle_id.get().is_empty()>"Keine Rolle – kein Zugriff"</option>
+                            <Suspense>
+                                {move || Suspend::new(async move {
+                                    rollen.await.unwrap_or_default().into_iter().map(|r| {
+                                        let wert = r.id.to_string();
+                                        let vergleich = wert.clone();
+                                        view! {
+                                            <option value=wert selected=move || rolle_id.get() == vergleich>{r.name}</option>
+                                        }
+                                    }).collect_view()
+                                })}
+                            </Suspense>
                         </select>
+                        <p class="label">"Was die Rolle erlaubt, legst du unter „Rollen“ fest."</p>
                     </fieldset>
                     <fieldset class="fieldset">
                         <legend class="fieldset-legend">"Status"</legend>
@@ -192,42 +215,19 @@ pub fn BenutzerSeite() -> impl IntoView {
                     </fieldset>
                 </div>
                 <fieldset class="fieldset">
-                    <legend class="fieldset-legend">"Zugriff auf Bereiche"</legend>
-                    <Show
-                        when=move || rolle.get() != ROLLE_ADMIN
-                        fallback=|| view! { <p class="text-sm text-base-content/60">"Admins haben Zugriff auf alle Bereiche."</p> }
-                    >
-                        <div class="grid grid-cols-2 gap-1 rounded-box border border-base-300 p-2">
-                            {Bereich::ALLE.into_iter().map(|bereich| {
-                                let schluessel = bereich.schluessel();
-                                view! {
-                                    <label class="label cursor-pointer gap-2 rounded-field px-2 py-1.5 text-base-content hover:bg-base-200">
-                                        <input type="checkbox" class="checkbox checkbox-sm checkbox-primary"
-                                            prop:checked=move || berechtigungen.with(|b| b.iter().any(|x| x == schluessel))
-                                            on:change:target=move |ev| {
-                                                let an = ev.target().checked();
-                                                berechtigungen.update(|b| {
-                                                    b.retain(|x| x != schluessel);
-                                                    if an { b.push(schluessel.to_string()); }
-                                                });
-                                            }/>
-                                        {bereich.titel()}
-                                    </label>
-                                }
-                            }).collect_view()}
-                        </div>
-                        <p class="label">"Nicht angehakte Bereiche erscheinen weder in der Navigation noch sind sie aufrufbar."</p>
-                    </Show>
-                </fieldset>
-                <fieldset class="fieldset">
                     <legend class="fieldset-legend">
                         {move || if bearbeite.get().is_some() { "Neues Passwort" } else { "Passwort" }}
                     </legend>
                     <input class="input w-full" type="password" autocomplete="new-password"
-                        required=move || bearbeite.get().is_none()
-                        placeholder=move || if bearbeite.get().is_some() { "Leer lassen = unverändert" } else { "" }
+                        placeholder=move || if bearbeite.get().is_some() { "Leer lassen = unverändert" } else { "Optional" }
                         bind:value=passwort/>
-                    <p class="label">{format!("Mindestens {PASSWORT_MIN_LAENGE} Zeichen.")}</p>
+                    <p class="label">
+                        {move || if microsoft.get() {
+                            "Dieses Konto meldet sich mit Microsoft an; ein Passwort ist zusätzlich möglich.".to_string()
+                        } else {
+                            format!("Mindestens {PASSWORT_MIN_LAENGE} Zeichen. Ohne Passwort ist nur die Anmeldung mit Microsoft möglich.")
+                        }}
+                    </p>
                 </fieldset>
                 <DialogAktionen offen=dialog_offen beschaeftigt=speichern.pending()/>
             </form>
@@ -235,24 +235,18 @@ pub fn BenutzerSeite() -> impl IntoView {
     }
 }
 
-fn alle_bereiche() -> Vec<String> {
-    Bereich::ALLE.iter().map(|b| b.schluessel().to_string()).collect()
-}
-
-/// Freigegebene Bereiche eines Benutzers als kleine Badges.
+/// Rollenname als Badge; Admin-Rollen mit Schild-Icon.
 #[component]
-fn ZugriffBadges(benutzer: crate::models::Benutzer) -> impl IntoView {
-    if benutzer.ist_admin() {
-        return view! { <span class="text-sm text-base-content/60">"Alle Bereiche"</span> }.into_any();
+pub fn RollenBadge(ist_admin: bool, name: Option<String>) -> impl IntoView {
+    match name {
+        Some(name) if ist_admin => view! {
+            <span class="badge badge-primary badge-soft gap-1 whitespace-nowrap">
+                <Icon icon=icondata::LuShieldCheck width="0.85rem" height="0.85rem"/>
+                {name}
+            </span>
+        }
+        .into_any(),
+        Some(name) => view! { <span class="badge badge-ghost whitespace-nowrap">{name}</span> }.into_any(),
+        None => view! { <span class="badge badge-warning badge-soft whitespace-nowrap">"Keine Rolle"</span> }.into_any(),
     }
-    let bereiche: Vec<Bereich> = Bereich::ALLE.into_iter().filter(|b| benutzer.darf(*b)).collect();
-    if bereiche.is_empty() {
-        return view! { <span class="badge badge-sm badge-warning badge-soft">"Kein Zugriff"</span> }.into_any();
-    }
-    view! {
-        <div class="flex flex-wrap gap-1">
-            {bereiche.into_iter().map(|b| view! { <span class="badge badge-sm badge-ghost">{b.titel()}</span> }).collect_view()}
-        </div>
-    }
-    .into_any()
 }

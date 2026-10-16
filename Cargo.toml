@@ -9,6 +9,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 argon2 = { version = "0.5.3", optional = true }
 axum = { version = "0.8.9", optional = true }
+base64 = { version = "0.23.1", optional = true }
 chrono = { version = "0.4.45", features = ["serde"] }
 console_error_panic_hook = { version = "0.1.7", optional = true }
 dotenvy = { version = "0.15.7", optional = true }
@@ -20,6 +21,7 @@ leptos_icons = "0.7.1"
 leptos_meta = "0.8.7"
 leptos_router = "0.8.17"
 password-hash = { version = "0.5", features = ["getrandom"], optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"], optional = true }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 sha2 = { version = "0.11.1", optional = true }
@@ -42,6 +44,8 @@ ssr = [
     "dep:password-hash",
     "dep:sha2",
     "dep:hex",
+    "dep:reqwest",
+    "dep:base64",
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",

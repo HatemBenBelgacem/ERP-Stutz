@@ -1,9 +1,10 @@
 use leptos::prelude::*;
 use leptos_icons::Icon;
 use leptos_router::components::{A, Redirect};
+use leptos_router::hooks::use_query_map;
 
 use crate::app::use_sitzung;
-use crate::backend::auth::{Anmelden, Registrieren};
+use crate::backend::auth::{Anmelden, Registrieren, microsoft_verfuegbar};
 use crate::components::gemeinsam::{Fehlermeldung, ergebnis_beobachten};
 use crate::models::PASSWORT_MIN_LAENGE;
 
@@ -38,7 +39,8 @@ pub fn AnmeldeSeite() -> impl IntoView {
     let sitzung = use_sitzung();
     let email = RwSignal::new(String::new());
     let passwort = RwSignal::new(String::new());
-    let meldung = RwSignal::new(None::<String>);
+    // Fehler aus der Microsoft-Anmeldung kommen als ?fehler=… zurück
+    let meldung = RwSignal::new(use_query_map().with_untracked(|q| q.get("fehler")));
     ergebnis_beobachten(sitzung.anmelden.value(), meldung, || {});
 
     let absenden = move |ev: leptos::ev::SubmitEvent| {
@@ -67,6 +69,7 @@ pub fn AnmeldeSeite() -> impl IntoView {
                     "Anmelden"
                 </button>
             </form>
+            <MicrosoftKnopf/>
             <p class="text-center text-sm">
                 "Noch kein Konto? "
                 <A href="/registrieren" attr:class="link link-primary">"Registrieren"</A>
@@ -125,10 +128,36 @@ pub fn RegistrierSeite() -> impl IntoView {
                     "Konto erstellen"
                 </button>
             </form>
+            <MicrosoftKnopf/>
             <p class="text-center text-sm">
                 "Schon registriert? "
                 <A href="/anmelden" attr:class="link link-primary">"Anmelden"</A>
             </p>
         </KontoRahmen>
+    }
+}
+
+/// „Mit Microsoft anmelden“ – nur sichtbar, wenn die Anmeldung eingerichtet ist.
+#[component]
+fn MicrosoftKnopf() -> impl IntoView {
+    let verfuegbar = Resource::new(|| (), |_| microsoft_verfuegbar());
+    view! {
+        <Suspense>
+            {move || Suspend::new(async move {
+                verfuegbar.await.unwrap_or(false).then(|| view! {
+                    <div class="divider my-0 text-xs text-base-content/50">"oder"</div>
+                    // rel="external": normaler Seitenwechsel statt Router-Navigation
+                    <a href="/auth/microsoft/start" rel="external" class="btn btn-outline w-full gap-3">
+                        <svg viewBox="0 0 21 21" width="18" height="18" aria-hidden="true">
+                            <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                            <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                            <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                            <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                        </svg>
+                        "Mit Microsoft anmelden"
+                    </a>
+                })
+            })}
+        </Suspense>
     }
 }
