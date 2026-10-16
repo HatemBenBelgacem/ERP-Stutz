@@ -137,27 +137,52 @@ pub fn RegistrierSeite() -> impl IntoView {
     }
 }
 
-/// „Mit Microsoft anmelden“ – nur sichtbar, wenn die Anmeldung eingerichtet ist.
+/// „Mit Microsoft anmelden“. Ist die Anmeldung noch nicht eingerichtet
+/// (Umgebungsvariablen fehlen), ist der Button ausgegraut.
 #[component]
 fn MicrosoftKnopf() -> impl IntoView {
     let verfuegbar = Resource::new(|| (), |_| microsoft_verfuegbar());
+    let gesperrt = || view! {
+        <button type="button" class="btn btn-outline w-full gap-3" disabled>
+            <MicrosoftLogo/>
+            "Mit Microsoft anmelden"
+        </button>
+    };
     view! {
-        <Suspense>
+        <div class="divider my-0 text-xs text-base-content/50">"oder"</div>
+        <Suspense fallback=gesperrt>
             {move || Suspend::new(async move {
-                verfuegbar.await.unwrap_or(false).then(|| view! {
-                    <div class="divider my-0 text-xs text-base-content/50">"oder"</div>
-                    // rel="external": normaler Seitenwechsel statt Router-Navigation
-                    <a href="/auth/microsoft/start" rel="external" class="btn btn-outline w-full gap-3">
-                        <svg viewBox="0 0 21 21" width="18" height="18" aria-hidden="true">
-                            <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-                            <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-                            <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-                            <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-                        </svg>
-                        "Mit Microsoft anmelden"
-                    </a>
-                })
+                if verfuegbar.await.unwrap_or(false) {
+                    view! {
+                        // rel="external": normaler Seitenwechsel statt Router-Navigation
+                        <a href="/auth/microsoft/start" rel="external" class="btn btn-outline w-full gap-3">
+                            <MicrosoftLogo/>
+                            "Mit Microsoft anmelden"
+                        </a>
+                    }
+                    .into_any()
+                } else {
+                    view! {
+                        {gesperrt()}
+                        <p class="-mt-1 text-center text-xs text-base-content/50">
+                            "Die Anmeldung mit Microsoft ist noch nicht eingerichtet."
+                        </p>
+                    }
+                    .into_any()
+                }
             })}
         </Suspense>
+    }
+}
+
+#[component]
+fn MicrosoftLogo() -> impl IntoView {
+    view! {
+        <svg viewBox="0 0 21 21" width="18" height="18" aria-hidden="true">
+            <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+            <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+            <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+            <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+        </svg>
     }
 }
