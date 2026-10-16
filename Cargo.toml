@@ -1,0 +1,70 @@
+[package]
+name = "weiterbildung"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+argon2 = { version = "0.5.3", optional = true }
+axum = { version = "0.8.9", optional = true }
+chrono = { version = "0.4.45", features = ["serde"] }
+console_error_panic_hook = { version = "0.1.7", optional = true }
+dotenvy = { version = "0.15.7", optional = true }
+hex = { version = "0.4.3", optional = true }
+icondata = { version = "0.7.0", default-features = false, features = ["lucide"] }
+leptos = "0.8.22"
+leptos_axum = { version = "0.8.10", optional = true }
+leptos_icons = "0.7.1"
+leptos_meta = "0.8.7"
+leptos_router = "0.8.17"
+password-hash = { version = "0.5", features = ["getrandom"], optional = true }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = { version = "0.11.1", optional = true }
+sqlx = { version = "0.9.0", features = ["runtime-tokio", "tls-rustls", "postgres", "macros", "migrate", "uuid", "chrono"], optional = true }
+tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros"], optional = true }
+uuid = { version = "1.28.0", features = ["serde", "v4", "js"] }
+wasm-bindgen = { version = "=0.2.129", optional = true }
+
+[features]
+# Browser-Build (WebAssembly)
+hydrate = ["leptos/hydrate", "dep:console_error_panic_hook", "dep:wasm-bindgen"]
+# Server-Build (Axum + PostgreSQL)
+ssr = [
+    "dep:axum",
+    "dep:tokio",
+    "dep:leptos_axum",
+    "dep:sqlx",
+    "dep:dotenvy",
+    "dep:argon2",
+    "dep:password-hash",
+    "dep:sha2",
+    "dep:hex",
+    "leptos/ssr",
+    "leptos_meta/ssr",
+    "leptos_router/ssr",
+]
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[package.metadata.leptos]
+output-name = "weiterbildung"
+site-root = "target/site"
+site-pkg-dir = "pkg"
+# cargo-leptos kompiliert Tailwind (inkl. DaisyUI-Plugin) automatisch bei build/watch
+tailwind-input-file = "style/tailwind.css"
+assets-dir = "public"
+site-addr = "127.0.0.1:3000"
+reload-port = 3001
+bin-features = ["ssr"]
+bin-default-features = false
+lib-features = ["hydrate"]
+lib-default-features = false
+lib-profile-release = "wasm-release"

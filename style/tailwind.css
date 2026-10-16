@@ -1,0 +1,10 @@
+@import "tailwindcss";
+@source "../src";
+@plugin "daisyui" {
+  themes: light --default;
+}
+
+/* Helle Farbpalette, auch wenn das System im Dark Mode ist */
+:root {
+  color-scheme: light;
+}
