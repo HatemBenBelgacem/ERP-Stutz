@@ -170,7 +170,8 @@ pub fn RollenSeite() -> impl IntoView {
                             <p class="text-sm text-base-content/60">"Die Administrator-Rolle hat immer alle Rechte."</p>
                         }
                     >
-                        <RechteMatrix rechte/>
+                        // Typ hier abschneiden, sonst wird der Dialog-Typ für den Compiler zu tief
+                        {view! { <RechteMatrix rechte/> }.into_any()}
                     </Show>
                 </fieldset>
                 <DialogAktionen offen=dialog_offen beschaeftigt=speichern.pending()/>

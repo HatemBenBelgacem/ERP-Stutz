@@ -1,3 +1,6 @@
+// Leptos-Views erzeugen tief verschachtelte Typen; der Release-Build braucht mehr Spielraum
+#![recursion_limit = "256"]
+
 pub mod app;
 pub mod backend;
 pub mod components;
