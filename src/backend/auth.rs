@@ -54,7 +54,13 @@ pub mod server {
     }
 
     fn cookie_setzen(wert: &str, max_age: i64) {
-        let cookie = format!("{COOKIE_NAME}={wert}; Path=/; HttpOnly; SameSite=Lax; Max-Age={max_age}");
+        // In Produktion (HTTPS) das Cookie nur verschlüsselt übertragen
+        let secure = if std::env::var("LEPTOS_ENV").is_ok_and(|e| e.eq_ignore_ascii_case("PROD")) {
+            "; Secure"
+        } else {
+            ""
+        };
+        let cookie = format!("{COOKIE_NAME}={wert}; Path=/; HttpOnly; SameSite=Lax; Max-Age={max_age}{secure}");
         if let (Some(antwort), Ok(wert)) = (
             use_context::<leptos_axum::ResponseOptions>(),
             HeaderValue::from_str(&cookie),
@@ -199,12 +205,23 @@ pub async fn registrieren(
         return Err(ServerFnError::new("Die Passwörter stimmen nicht überein."));
     }
 
-    // Das erste Konto wird Administrator, damit jemand die Benutzer verwalten kann.
-    let anzahl: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM benutzer")
-        .fetch_one(pool())
-        .await
-        .map_err(fehler)?;
-    let rolle = if anzahl == 0 { ROLLE_ADMIN } else { ROLLE_BENUTZER };
+    // Mit ADMIN_EMAIL wird nur diese Adresse Administrator (für öffentliche
+    // Installationen). Ohne die Variable wird das erste Konto Administrator.
+    let admin_email = std::env::var("ADMIN_EMAIL")
+        .ok()
+        .map(|e| e.trim().to_lowercase())
+        .filter(|e| !e.is_empty());
+    let rolle = match admin_email {
+        Some(admin) if admin == email => ROLLE_ADMIN,
+        Some(_) => ROLLE_BENUTZER,
+        None => {
+            let anzahl: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM benutzer")
+                .fetch_one(pool())
+                .await
+                .map_err(fehler)?;
+            if anzahl == 0 { ROLLE_ADMIN } else { ROLLE_BENUTZER }
+        }
+    };
 
     let id: Uuid = sqlx::query_scalar(
         "INSERT INTO benutzer (name, email, passwort_hash, rolle) VALUES ($1, $2, $3, $4) RETURNING id",

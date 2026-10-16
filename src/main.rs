@@ -14,8 +14,12 @@ async fn main() {
     }
 
     let conf = get_configuration(None).unwrap();
-    let addr = conf.leptos_options.site_addr;
-    let leptos_options = conf.leptos_options;
+    let mut leptos_options = conf.leptos_options;
+    // Hoster wie Railway geben den Port über PORT vor
+    if let Some(port) = std::env::var("PORT").ok().and_then(|p| p.parse::<u16>().ok()) {
+        leptos_options.site_addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
+    }
+    let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
 
     let app = Router::new()
