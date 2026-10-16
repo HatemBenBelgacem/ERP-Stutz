@@ -21,7 +21,7 @@ pub mod server {
     use sha2::{Digest, Sha256};
 
     use crate::backend::db::{fehler, pool};
-    use crate::models::{Benutzer, PASSWORT_MIN_LAENGE};
+    use crate::models::{Benutzer, Bereich, PASSWORT_MIN_LAENGE};
 
     const COOKIE_NAME: &str = "weiterbildung_sitzung";
     const SITZUNG_TAGE: i64 = 7;
@@ -124,7 +124,7 @@ pub mod server {
             return Ok(None);
         };
         sqlx::query_as(
-            "SELECT b.id, b.name, b.email, b.rolle, b.aktiv, b.erstellt_am
+            "SELECT b.id, b.name, b.email, b.rolle, b.aktiv, b.erstellt_am, b.berechtigungen
              FROM sitzung s JOIN benutzer b ON b.id = s.benutzer_id
              WHERE s.token_hash = $1 AND s.laeuft_ab > now() AND b.aktiv",
         )
@@ -139,6 +139,16 @@ pub mod server {
         aktueller_benutzer()
             .await?
             .ok_or_else(|| ServerFnError::new("Bitte zuerst anmelden."))
+    }
+
+    /// Bricht ab, wenn der Benutzer keinen der genannten Bereiche sehen darf.
+    pub async fn bereich_pflicht(bereiche: &[Bereich]) -> Result<Benutzer, ServerFnError> {
+        let benutzer = benutzer_pflicht().await?;
+        if bereiche.iter().any(|b| benutzer.darf(*b)) {
+            Ok(benutzer)
+        } else {
+            Err(ServerFnError::new("Für diesen Bereich fehlt dir die Berechtigung."))
+        }
     }
 
     /// Bricht ab, wenn der angemeldete Benutzer kein Admin ist.
@@ -248,7 +258,7 @@ pub async fn abmelden() -> Result<(), ServerFnError> {
 pub async fn benutzer_laden() -> Result<Vec<Benutzer>, ServerFnError> {
     use crate::backend::db::{fehler, pool};
     server::admin_pflicht().await?;
-    sqlx::query_as("SELECT id, name, email, rolle, aktiv, erstellt_am FROM benutzer ORDER BY name")
+    sqlx::query_as("SELECT id, name, email, rolle, aktiv, erstellt_am, berechtigungen FROM benutzer ORDER BY name")
         .fetch_all(pool())
         .await
         .map_err(fehler)
@@ -264,6 +274,7 @@ pub async fn benutzer_speichern(
     rolle: String,
     aktiv: bool,
     passwort: String,
+    berechtigungen: Vec<String>,
 ) -> Result<(), ServerFnError> {
     use crate::backend::db::{fehler, pool};
     use crate::models::{ROLLE_ADMIN, ROLLE_BENUTZER};
@@ -280,6 +291,15 @@ pub async fn benutzer_speichern(
     if rolle != ROLLE_ADMIN && rolle != ROLLE_BENUTZER {
         return Err(ServerFnError::new("Unbekannte Rolle."));
     }
+    // Nur bekannte Bereiche übernehmen, jeden höchstens einmal
+    let mut berechtigungen: Vec<String> = berechtigungen
+        .iter()
+        .filter_map(|b| crate::models::Bereich::aus_schluessel(b))
+        .map(|b| b.schluessel().to_string())
+        .collect();
+    berechtigungen.sort();
+    berechtigungen.dedup();
+
     let neues_passwort = if passwort.is_empty() {
         None
     } else {
@@ -292,13 +312,15 @@ pub async fn benutzer_speichern(
             let hash = neues_passwort
                 .ok_or_else(|| ServerFnError::new("Für neue Benutzer ist ein Passwort nötig."))?;
             sqlx::query(
-                "INSERT INTO benutzer (name, email, passwort_hash, rolle, aktiv) VALUES ($1, $2, $3, $4, $5)",
+                "INSERT INTO benutzer (name, email, passwort_hash, rolle, aktiv, berechtigungen)
+                 VALUES ($1, $2, $3, $4, $5, $6)",
             )
             .bind(name)
             .bind(email)
             .bind(hash)
             .bind(rolle)
             .bind(aktiv)
+            .bind(&berechtigungen)
             .execute(pool())
             .await
             .map_err(fehler)?;
@@ -311,12 +333,16 @@ pub async fn benutzer_speichern(
                 ));
             }
             let mut tx = pool().begin().await.map_err(fehler)?;
-            sqlx::query("UPDATE benutzer SET name = $2, email = $3, rolle = $4, aktiv = $5 WHERE id = $1")
+            sqlx::query(
+                "UPDATE benutzer SET name = $2, email = $3, rolle = $4, aktiv = $5, berechtigungen = $6
+                 WHERE id = $1",
+            )
                 .bind(id)
                 .bind(name)
                 .bind(email)
                 .bind(rolle)
                 .bind(aktiv)
+                .bind(&berechtigungen)
                 .execute(&mut *tx)
                 .await
                 .map_err(fehler)?;

@@ -12,7 +12,8 @@ use crate::components::layout::Layout;
 use crate::components::mitarbeiter::MitarbeiterSeite;
 use crate::components::termin::TerminSeite;
 use crate::components::uebersicht::Uebersicht;
-use crate::models::Benutzer;
+use crate::components::kein_zugriff::KeinZugriff;
+use crate::models::{Benutzer, Bereich};
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -55,6 +56,18 @@ impl Sitzung {
     pub fn ist_admin(&self) -> Option<bool> {
         self.benutzer.get().map(|r| matches!(r, Ok(Some(b)) if b.ist_admin()))
     }
+
+    /// `None` = lädt noch, sonst ob der Bereich freigegeben ist.
+    pub fn darf(&self, bereich: Bereich) -> Option<bool> {
+        self.benutzer.get().map(|r| matches!(r, Ok(Some(b)) if b.darf(bereich)))
+    }
+
+    /// Wohin umgeleitet wird, wenn eine Seite nicht erlaubt ist.
+    pub fn startseite(&self) -> String {
+        self.benutzer()
+            .map(|b| b.startseite().to_string())
+            .unwrap_or_else(|| "/anmelden".to_string())
+    }
 }
 
 pub fn use_sitzung() -> Sitzung {
@@ -89,15 +102,37 @@ pub fn App() -> impl IntoView {
                     condition=move || sitzung.angemeldet()
                     redirect_path=|| "/anmelden"
                 >
-                    <Route path=StaticSegment("") view=Uebersicht/>
-                    <Route path=StaticSegment("kurse") view=KursSeite/>
-                    <Route path=StaticSegment("mitarbeiter") view=MitarbeiterSeite/>
-                    <Route path=StaticSegment("termine") view=TerminSeite/>
+                    // Jeder Bereich nur mit Berechtigung, sonst zur ersten erlaubten Seite
+                    <ProtectedRoute
+                        path=StaticSegment("")
+                        view=Uebersicht
+                        condition=move || sitzung.darf(Bereich::Uebersicht)
+                        redirect_path=move || sitzung.startseite()
+                    />
+                    <ProtectedRoute
+                        path=StaticSegment("kurse")
+                        view=KursSeite
+                        condition=move || sitzung.darf(Bereich::Kurse)
+                        redirect_path=move || sitzung.startseite()
+                    />
+                    <ProtectedRoute
+                        path=StaticSegment("mitarbeiter")
+                        view=MitarbeiterSeite
+                        condition=move || sitzung.darf(Bereich::Mitarbeiter)
+                        redirect_path=move || sitzung.startseite()
+                    />
+                    <ProtectedRoute
+                        path=StaticSegment("termine")
+                        view=TerminSeite
+                        condition=move || sitzung.darf(Bereich::Termine)
+                        redirect_path=move || sitzung.startseite()
+                    />
+                    <Route path=StaticSegment("kein-zugriff") view=KeinZugriff/>
                     <ProtectedRoute
                         path=StaticSegment("benutzer")
                         view=BenutzerSeite
                         condition=move || sitzung.ist_admin()
-                        redirect_path=|| "/"
+                        redirect_path=move || sitzung.startseite()
                     />
                 </ProtectedParentRoute>
             </Routes>

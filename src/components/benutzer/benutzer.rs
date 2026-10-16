@@ -8,7 +8,7 @@ use crate::components::gemeinsam::{
     Dialog, DialogAktionen, Fehlermeldung, Laden, Leer, Seitenkopf, ZeilenAktionen, bestaetigt,
     ergebnis_beobachten, meldung_aus,
 };
-use crate::models::{PASSWORT_MIN_LAENGE, ROLLE_ADMIN, ROLLE_BENUTZER};
+use crate::models::{Bereich, PASSWORT_MIN_LAENGE, ROLLE_ADMIN, ROLLE_BENUTZER};
 
 #[component]
 pub fn BenutzerSeite() -> impl IntoView {
@@ -27,6 +27,7 @@ pub fn BenutzerSeite() -> impl IntoView {
     let rolle = RwSignal::new(ROLLE_BENUTZER.to_string());
     let aktiv = RwSignal::new(true);
     let passwort = RwSignal::new(String::new());
+    let berechtigungen = RwSignal::new(alle_bereiche());
     let formular_meldung = RwSignal::new(None::<String>);
     let listen_meldung = RwSignal::new(None::<String>);
 
@@ -37,6 +38,7 @@ pub fn BenutzerSeite() -> impl IntoView {
         rolle.set(ROLLE_BENUTZER.to_string());
         aktiv.set(true);
         passwort.set(String::new());
+        berechtigungen.set(alle_bereiche());
         formular_meldung.set(None);
         dialog_offen.set(true);
     };
@@ -52,6 +54,7 @@ pub fn BenutzerSeite() -> impl IntoView {
             rolle: rolle.get_untracked(),
             aktiv: aktiv.get_untracked(),
             passwort: passwort.get_untracked(),
+            berechtigungen: berechtigungen.get_untracked(),
         });
     };
 
@@ -80,7 +83,7 @@ pub fn BenutzerSeite() -> impl IntoView {
                             }.into_any(),
                             Ok(liste) => view! {
                                 <table class="table max-sm:table-sm">
-                                    <thead><tr><th>"Name"</th><th class="hidden md:table-cell">"E-Mail"</th><th>"Rolle"</th><th class="hidden sm:table-cell">"Status"</th><th class="hidden lg:table-cell">"Erstellt"</th><th></th></tr></thead>
+                                    <thead><tr><th>"Name"</th><th class="hidden md:table-cell">"E-Mail"</th><th>"Rolle"</th><th class="hidden sm:table-cell">"Status"</th><th class="hidden xl:table-cell">"Zugriff"</th><th class="hidden lg:table-cell">"Erstellt"</th><th></th></tr></thead>
                                     <tbody>
                                         {liste.into_iter().map(|b| {
                                             let id = b.id;
@@ -92,11 +95,13 @@ pub fn BenutzerSeite() -> impl IntoView {
                                                 email.set(b.email);
                                                 rolle.set(b.rolle);
                                                 aktiv.set(b.aktiv);
+                                                berechtigungen.set(b.berechtigungen);
                                                 passwort.set(String::new());
                                                 formular_meldung.set(None);
                                                 dialog_offen.set(true);
                                             };
                                             let ist_admin = b.ist_admin();
+                                            let fuer_badges = b.clone();
                                             view! {
                                                 <tr class="cursor-pointer select-none hover:bg-base-200/50" title="Doppelklick zum Bearbeiten"
                                                     on:dblclick={let bearbeiten = bearbeiten.clone(); move |_| bearbeiten()}>
@@ -131,6 +136,9 @@ pub fn BenutzerSeite() -> impl IntoView {
                                                         } else {
                                                             view! { <span class="badge badge-error badge-soft">"Deaktiviert"</span> }.into_any()
                                                         }}
+                                                    </td>
+                                                    <td class="hidden xl:table-cell">
+                                                        <ZugriffBadges benutzer=fuer_badges/>
                                                     </td>
                                                     <td class="hidden whitespace-nowrap lg:table-cell">{b.erstellt_am.format("%d.%m.%Y").to_string()}</td>
                                                     <td>
@@ -184,6 +192,34 @@ pub fn BenutzerSeite() -> impl IntoView {
                     </fieldset>
                 </div>
                 <fieldset class="fieldset">
+                    <legend class="fieldset-legend">"Zugriff auf Bereiche"</legend>
+                    <Show
+                        when=move || rolle.get() != ROLLE_ADMIN
+                        fallback=|| view! { <p class="text-sm text-base-content/60">"Admins haben Zugriff auf alle Bereiche."</p> }
+                    >
+                        <div class="grid grid-cols-2 gap-1 rounded-box border border-base-300 p-2">
+                            {Bereich::ALLE.into_iter().map(|bereich| {
+                                let schluessel = bereich.schluessel();
+                                view! {
+                                    <label class="label cursor-pointer gap-2 rounded-field px-2 py-1.5 text-base-content hover:bg-base-200">
+                                        <input type="checkbox" class="checkbox checkbox-sm checkbox-primary"
+                                            prop:checked=move || berechtigungen.with(|b| b.iter().any(|x| x == schluessel))
+                                            on:change:target=move |ev| {
+                                                let an = ev.target().checked();
+                                                berechtigungen.update(|b| {
+                                                    b.retain(|x| x != schluessel);
+                                                    if an { b.push(schluessel.to_string()); }
+                                                });
+                                            }/>
+                                        {bereich.titel()}
+                                    </label>
+                                }
+                            }).collect_view()}
+                        </div>
+                        <p class="label">"Nicht angehakte Bereiche erscheinen weder in der Navigation noch sind sie aufrufbar."</p>
+                    </Show>
+                </fieldset>
+                <fieldset class="fieldset">
                     <legend class="fieldset-legend">
                         {move || if bearbeite.get().is_some() { "Neues Passwort" } else { "Passwort" }}
                     </legend>
@@ -197,4 +233,26 @@ pub fn BenutzerSeite() -> impl IntoView {
             </form>
         </Dialog>
     }
+}
+
+fn alle_bereiche() -> Vec<String> {
+    Bereich::ALLE.iter().map(|b| b.schluessel().to_string()).collect()
+}
+
+/// Freigegebene Bereiche eines Benutzers als kleine Badges.
+#[component]
+fn ZugriffBadges(benutzer: crate::models::Benutzer) -> impl IntoView {
+    if benutzer.ist_admin() {
+        return view! { <span class="text-sm text-base-content/60">"Alle Bereiche"</span> }.into_any();
+    }
+    let bereiche: Vec<Bereich> = Bereich::ALLE.into_iter().filter(|b| benutzer.darf(*b)).collect();
+    if bereiche.is_empty() {
+        return view! { <span class="badge badge-sm badge-warning badge-soft">"Kein Zugriff"</span> }.into_any();
+    }
+    view! {
+        <div class="flex flex-wrap gap-1">
+            {bereiche.into_iter().map(|b| view! { <span class="badge badge-sm badge-ghost">{b.titel()}</span> }).collect_view()}
+        </div>
+    }
+    .into_any()
 }

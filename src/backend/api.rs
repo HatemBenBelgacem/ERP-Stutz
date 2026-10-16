@@ -4,6 +4,8 @@ use leptos::prelude::*;
 use leptos::server_fn::codec::Json;
 use uuid::Uuid;
 
+#[cfg(feature = "ssr")]
+use crate::models::Bereich;
 use crate::models::{Kurs, Mitarbeiter, Termin, TerminEingabe};
 
 #[cfg(feature = "ssr")]
@@ -33,7 +35,7 @@ mod hilfe {
 
 #[server(input = Json)]
 pub async fn statistik() -> Result<(i64, i64, i64), ServerFnError> {
-    crate::backend::auth::server::benutzer_pflicht().await?;
+    crate::backend::auth::server::bereich_pflicht(&[Bereich::Uebersicht]).await?;
     use crate::backend::db::{fehler, pool};
     sqlx::query_as(
         "SELECT (SELECT COUNT(*) FROM kurs), (SELECT COUNT(*) FROM mitarbeiter), (SELECT COUNT(*) FROM termin)",
@@ -47,7 +49,7 @@ pub async fn statistik() -> Result<(i64, i64, i64), ServerFnError> {
 
 #[server(input = Json)]
 pub async fn kurse_laden() -> Result<Vec<Kurs>, ServerFnError> {
-    crate::backend::auth::server::benutzer_pflicht().await?;
+    crate::backend::auth::server::bereich_pflicht(&[Bereich::Kurse, Bereich::Termine]).await?;
     use crate::backend::db::{fehler, pool};
     sqlx::query_as("SELECT id, titel, beschreibung, dauer_stunden FROM kurs ORDER BY titel")
         .fetch_all(pool())
@@ -62,7 +64,7 @@ pub async fn kurs_speichern(
     beschreibung: String,
     dauer_stunden: i32,
 ) -> Result<(), ServerFnError> {
-    crate::backend::auth::server::benutzer_pflicht().await?;
+    crate::backend::auth::server::bereich_pflicht(&[Bereich::Kurse]).await?;
     use crate::backend::db::{fehler, pool};
     let titel = hilfe::pflicht(titel, "Titel")?;
     if dauer_stunden < 0 {
@@ -89,7 +91,7 @@ pub async fn kurs_speichern(
 
 #[server(input = Json)]
 pub async fn kurs_loeschen(id: Uuid) -> Result<(), ServerFnError> {
-    crate::backend::auth::server::benutzer_pflicht().await?;
+    crate::backend::auth::server::bereich_pflicht(&[Bereich::Kurse]).await?;
     use crate::backend::db::{fehler, pool};
     sqlx::query("DELETE FROM kurs WHERE id = $1")
         .bind(id)
@@ -103,7 +105,7 @@ pub async fn kurs_loeschen(id: Uuid) -> Result<(), ServerFnError> {
 
 #[server(input = Json)]
 pub async fn mitarbeiter_laden() -> Result<Vec<Mitarbeiter>, ServerFnError> {
-    crate::backend::auth::server::benutzer_pflicht().await?;
+    crate::backend::auth::server::bereich_pflicht(&[Bereich::Mitarbeiter, Bereich::Termine]).await?;
     use crate::backend::db::{fehler, pool};
     sqlx::query_as(
         "SELECT id, vorname, nachname, email, abteilung FROM mitarbeiter ORDER BY nachname, vorname",
@@ -121,7 +123,7 @@ pub async fn mitarbeiter_speichern(
     email: String,
     abteilung: String,
 ) -> Result<(), ServerFnError> {
-    crate::backend::auth::server::benutzer_pflicht().await?;
+    crate::backend::auth::server::bereich_pflicht(&[Bereich::Mitarbeiter]).await?;
     use crate::backend::db::{fehler, pool};
     let vorname = hilfe::pflicht(vorname, "Vorname")?;
     let nachname = hilfe::pflicht(nachname, "Nachname")?;
@@ -151,7 +153,7 @@ pub async fn mitarbeiter_speichern(
 
 #[server(input = Json)]
 pub async fn mitarbeiter_loeschen(id: Uuid) -> Result<(), ServerFnError> {
-    crate::backend::auth::server::benutzer_pflicht().await?;
+    crate::backend::auth::server::bereich_pflicht(&[Bereich::Mitarbeiter]).await?;
     use crate::backend::db::{fehler, pool};
     // Teilnahmen werden per ON DELETE CASCADE mitgelöscht.
     sqlx::query("DELETE FROM mitarbeiter WHERE id = $1")
@@ -166,7 +168,7 @@ pub async fn mitarbeiter_loeschen(id: Uuid) -> Result<(), ServerFnError> {
 
 #[server(input = Json)]
 pub async fn termine_laden() -> Result<Vec<Termin>, ServerFnError> {
-    crate::backend::auth::server::benutzer_pflicht().await?;
+    crate::backend::auth::server::bereich_pflicht(&[Bereich::Termine]).await?;
     use std::collections::HashMap;
 
     use chrono::NaiveDateTime;
@@ -219,7 +221,7 @@ pub async fn termine_laden() -> Result<Vec<Termin>, ServerFnError> {
 
 #[server(input = Json)]
 pub async fn termin_speichern(id: Option<Uuid>, eingabe: TerminEingabe) -> Result<(), ServerFnError> {
-    crate::backend::auth::server::benutzer_pflicht().await?;
+    crate::backend::auth::server::bereich_pflicht(&[Bereich::Termine]).await?;
     use crate::backend::db::{fehler, pool};
 
     let beginn = hilfe::zeitpunkt(&eingabe.beginn, "Beginn")?;
@@ -291,7 +293,7 @@ pub async fn termin_speichern(id: Option<Uuid>, eingabe: TerminEingabe) -> Resul
 
 #[server(input = Json)]
 pub async fn termin_loeschen(id: Uuid) -> Result<(), ServerFnError> {
-    crate::backend::auth::server::benutzer_pflicht().await?;
+    crate::backend::auth::server::bereich_pflicht(&[Bereich::Termine]).await?;
     use crate::backend::db::{fehler, pool};
     sqlx::query("DELETE FROM termin WHERE id = $1")
         .bind(id)

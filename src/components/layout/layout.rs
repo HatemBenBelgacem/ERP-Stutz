@@ -5,12 +5,13 @@ use leptos_icons::Icon;
 use leptos_router::components::{A, Outlet};
 
 use crate::app::use_sitzung;
+use crate::models::Bereich;
 
-const NAVIGATION: [(&str, &str, icondata::Icon); 4] = [
-    ("/", "Übersicht", icondata::LuLayoutDashboard),
-    ("/termine", "Termine", icondata::LuCalendar),
-    ("/kurse", "Kurse", icondata::LuBookOpen),
-    ("/mitarbeiter", "Mitarbeiter", icondata::LuUsers),
+const NAVIGATION: [(Bereich, icondata::Icon); 4] = [
+    (Bereich::Uebersicht, icondata::LuLayoutDashboard),
+    (Bereich::Termine, icondata::LuCalendar),
+    (Bereich::Kurse, icondata::LuBookOpen),
+    (Bereich::Mitarbeiter, icondata::LuUsers),
 ];
 
 #[component]
@@ -87,10 +88,17 @@ fn Sidebar(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl Int
         </Show>
         <aside class=klassen aria-label="Hauptnavigation">
             <ul class="menu w-full gap-1 p-2">
-                {NAVIGATION
-                    .into_iter()
-                    .map(|(href, text, icon)| view! { <NavEintrag href text icon eingeklappt mobil_offen/> })
-                    .collect_view()}
+                // Nur Bereiche anzeigen, die der Benutzer sehen darf
+                <Transition>
+                    {NAVIGATION
+                        .into_iter()
+                        .map(|(bereich, icon)| view! {
+                            <Show when=move || sitzung.darf(bereich) == Some(true)>
+                                <NavEintrag href=bereich.pfad() text=bereich.titel() icon eingeklappt mobil_offen/>
+                            </Show>
+                        })
+                        .collect_view()}
+                </Transition>
                 <Transition>
                     <Show when=move || sitzung.ist_admin() == Some(true)>
                         <li class="menu-title mt-2">
