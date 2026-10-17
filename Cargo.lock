@@ -630,6 +630,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1731451909bde27714eacba19c2566362a7f35224f52b153d3f42cf60f72472"
 
 [[package]]
+name = "erp-stutz"
+version = "0.1.0"
+dependencies = [
+ "argon2",
+ "axum",
+ "base64 0.23.1",
+ "chrono",
+ "console_error_panic_hook",
+ "dotenvy",
+ "hex",
+ "icondata",
+ "leptos",
+ "leptos_axum",
+ "leptos_icons",
+ "leptos_meta",
+ "leptos_router",
+ "password-hash",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "sqlx",
+ "tokio",
+ "uuid",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "etcetera"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3352,34 +3380,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7dcd9d09a39985f5344844e66b0c530a33843579125f23e21e9f0f220850f22a"
 dependencies = [
  "rustls-pki-types",
-]
-
-[[package]]
-name = "weiterbildung"
-version = "0.1.0"
-dependencies = [
- "argon2",
- "axum",
- "base64 0.23.1",
- "chrono",
- "console_error_panic_hook",
- "dotenvy",
- "hex",
- "icondata",
- "leptos",
- "leptos_axum",
- "leptos_icons",
- "leptos_meta",
- "leptos_router",
- "password-hash",
- "reqwest",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "sqlx",
- "tokio",
- "uuid",
- "wasm-bindgen",
 ]
 
 [[package]]

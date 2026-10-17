@@ -5,10 +5,10 @@ async fn main() {
     use leptos::logging::log;
     use leptos::prelude::*;
     use leptos_axum::{LeptosRoutes, generate_route_list};
-    use weiterbildung::app::*;
+    use erp_stutz::app::*;
 
     dotenvy::dotenv().ok();
-    if let Err(e) = weiterbildung::backend::db::init().await {
+    if let Err(e) = erp_stutz::backend::db::init().await {
         eprintln!("Datenbank konnte nicht initialisiert werden: {e}");
         std::process::exit(1);
     }
@@ -24,10 +24,10 @@ async fn main() {
 
     let app = Router::new()
         // Anmeldung mit Microsoft (OAuth-Weiterleitung und Rückkehr)
-        .route("/auth/microsoft/start", axum::routing::get(weiterbildung::backend::microsoft::start))
-        .route("/auth/microsoft/callback", axum::routing::get(weiterbildung::backend::microsoft::rueckruf))
+        .route("/auth/microsoft/start", axum::routing::get(erp_stutz::backend::microsoft::start))
+        .route("/auth/microsoft/callback", axum::routing::get(erp_stutz::backend::microsoft::rueckruf))
         // Teilnehmerliste eines Termins als PDF
-        .route("/termine/{id}/teilnehmerliste.pdf", axum::routing::get(weiterbildung::backend::pdf::teilnehmerliste))
+        .route("/termine/{id}/teilnehmerliste.pdf", axum::routing::get(erp_stutz::backend::pdf::teilnehmerliste))
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
             move || shell(leptos_options.clone())

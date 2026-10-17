@@ -24,7 +24,7 @@ pub mod server {
     use crate::backend::db::{fehler, pool};
     use crate::models::{Aktion, Benutzer, Bereich, PASSWORT_MIN_LAENGE};
 
-    const COOKIE_NAME: &str = "weiterbildung_sitzung";
+    const COOKIE_NAME: &str = "erp_stutz_sitzung";
     const SITZUNG_TAGE: i64 = 7;
 
     /// Benutzer samt Rolle und Rechten; Tabellenalias `b` für `benutzer`.

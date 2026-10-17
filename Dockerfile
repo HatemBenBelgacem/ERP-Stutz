@@ -31,11 +31,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=builder /app/target/release/weiterbildung /app/weiterbildung
+COPY --from=builder /app/target/release/erp-stutz /app/erp-stutz
 COPY --from=builder /app/target/site /app/site
 COPY --from=builder /app/Cargo.toml /app/Cargo.toml
 
-ENV LEPTOS_OUTPUT_NAME=weiterbildung \
+ENV LEPTOS_OUTPUT_NAME=erp-stutz \
     LEPTOS_SITE_ROOT=site \
     LEPTOS_SITE_PKG_DIR=pkg \
     LEPTOS_SITE_ADDR=0.0.0.0:8080 \
@@ -43,4 +43,4 @@ ENV LEPTOS_OUTPUT_NAME=weiterbildung \
     RUST_LOG=info
 
 EXPOSE 8080
-CMD ["/app/weiterbildung"]
+CMD ["/app/erp-stutz"]

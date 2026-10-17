@@ -119,7 +119,7 @@ pub fn App() -> impl IntoView {
     provide_context(sitzung);
 
     view! {
-        <Stylesheet id="leptos" href="/pkg/weiterbildung.css"/>
+        <Stylesheet id="leptos" href="/pkg/erp-stutz.css"/>
         <Title text="ERP-Stutz AG"/>
         <Router>
             <Routes fallback=|| view! { <Leer symbol=icondata::LuHardHat text="Seite nicht gefunden."/> }>

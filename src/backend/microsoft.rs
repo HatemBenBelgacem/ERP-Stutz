@@ -50,7 +50,7 @@ mod handler {
     };
     use crate::backend::db::pool;
 
-    const COOKIE_NAME: &str = "weiterbildung_ms";
+    const COOKIE_NAME: &str = "erp_stutz_ms";
     const COOKIE_PFAD: &str = "/auth/microsoft";
 
     fn umleiten(ziel: &str, cookies: Vec<String>) -> Response {

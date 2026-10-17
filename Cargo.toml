@@ -1,5 +1,5 @@
 [package]
-name = "weiterbildung"
+name = "erp-stutz"
 version = "0.1.0"
 edition = "2024"
 
@@ -59,7 +59,7 @@ codegen-units = 1
 panic = "abort"
 
 [package.metadata.leptos]
-output-name = "weiterbildung"
+output-name = "erp-stutz"
 site-root = "target/site"
 site-pkg-dir = "pkg"
 # cargo-leptos kompiliert Tailwind (inkl. DaisyUI-Plugin) automatisch bei build/watch
