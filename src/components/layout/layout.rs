@@ -3,14 +3,16 @@
 use leptos::prelude::*;
 use leptos_icons::Icon;
 use leptos_router::components::{A, Outlet};
+use leptos_router::hooks::use_location;
 
 use crate::app::use_sitzung;
 use crate::models::Bereich;
 
-/// Navigation in Gruppen; Gruppen ohne Titel stehen für sich.
-const NAVIGATION: [(Option<&str>, &[(Bereich, icondata::Icon)]); 2] = [
+/// Navigation in Gruppen; Gruppen mit Titel lassen sich einklappen,
+/// Gruppen ohne Titel stehen für sich.
+const NAVIGATION: [(Option<(&str, icondata::Icon)>, &[(Bereich, icondata::Icon)]); 2] = [
     (
-        Some("Personal"),
+        Some(("Personal", icondata::LuBriefcase)),
         &[
             (Bereich::Termine, icondata::LuCalendar),
             (Bereich::Kurse, icondata::LuBookOpen),
@@ -107,17 +109,25 @@ fn Sidebar(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl Int
                         .into_iter()
                         .map(|(gruppe, eintraege)| {
                             let sichtbar = move || eintraege.iter().any(|(b, _)| sitzung.sieht(*b) == Some(true));
+                            let liste = move || {
+                                eintraege
+                                    .iter()
+                                    .map(|&(bereich, icon)| view! {
+                                        <Show when=move || sitzung.sieht(bereich) == Some(true)>
+                                            <NavEintrag href=bereich.pfad() text=bereich.titel() icon eingeklappt mobil_offen/>
+                                        </Show>
+                                    })
+                                    .collect_view()
+                            };
                             view! {
                                 <Show when=sichtbar>
-                                    <NavGruppe titel=gruppe eingeklappt/>
-                                    {eintraege
-                                        .iter()
-                                        .map(|&(bereich, icon)| view! {
-                                            <Show when=move || sitzung.sieht(bereich) == Some(true)>
-                                                <NavEintrag href=bereich.pfad() text=bereich.titel() icon eingeklappt mobil_offen/>
-                                            </Show>
-                                        })
-                                        .collect_view()}
+                                    <li class="pointer-events-none mx-2 my-2 h-px bg-base-300 p-0 first:hidden" aria-hidden="true"></li>
+                                    {match gruppe {
+                                        Some((titel, icon)) => view! {
+                                            <NavGruppe titel icon eintraege eingeklappt>{liste()}</NavGruppe>
+                                        }.into_any(),
+                                        None => liste().into_any(),
+                                    }}
                                 </Show>
                             }
                         })
@@ -142,15 +152,45 @@ fn beschriftung_klassen(eingeklappt: bool) -> &'static str {
     if eingeklappt { "md:hidden" } else { "md:max-lg:hidden" }
 }
 
-/// Beginn einer Gruppe: Trennlinie (nicht vor der ersten) und Titel; als
-/// Icon-Leiste bleibt nur die Trennlinie.
+/// Einklappbare Gruppe. Eingeklappt ist der Titel markiert, wenn eine
+/// ihrer Seiten offen ist.
 #[component]
-fn NavGruppe(titel: Option<&'static str>, eingeklappt: RwSignal<bool>) -> impl IntoView {
+fn NavGruppe(
+    titel: &'static str,
+    icon: icondata::Icon,
+    eintraege: &'static [(Bereich, icondata::Icon)],
+    eingeklappt: RwSignal<bool>,
+    children: ChildrenFn,
+) -> impl IntoView {
+    let offen = RwSignal::new(true);
+    let pfad = use_location().pathname;
+    let aktiv = move || pfad.with(|p| eintraege.iter().any(|(b, _)| p.starts_with(b.pfad())));
+    let beschriftung = move || beschriftung_klassen(eingeklappt.get());
+    // Als Icon-Leiste ohne Einzug und Linie
+    let einzug = move || {
+        if eingeklappt.get() { "md:ms-0 md:ps-0 md:before:hidden" } else { "md:max-lg:ms-0 md:max-lg:ps-0 md:max-lg:before:hidden" }
+    };
     view! {
-        <li class="pointer-events-none mx-2 my-2 h-px bg-base-300 p-0 first:hidden" aria-hidden="true"></li>
-        {titel.map(|titel| view! {
-            <li class=move || format!("menu-title {}", beschriftung_klassen(eingeklappt.get()))>{titel}</li>
-        })}
+        <li>
+            <button
+                type="button"
+                class="flex items-center gap-3 whitespace-nowrap"
+                class=("text-primary", move || !offen.get() && aktiv())
+                class=("font-medium", move || !offen.get() && aktiv())
+                title=move || format!("{titel} {}", if offen.get() { "einklappen" } else { "ausklappen" })
+                aria-expanded=move || offen.get().to_string()
+                on:click=move |_| offen.update(|o| *o = !*o)
+            >
+                <Icon icon width="1.25rem" height="1.25rem" attr:class="shrink-0"/>
+                <span class=move || format!("flex-1 text-left {}", beschriftung())>{titel}</span>
+                <span class=move || format!("transition-transform {} {}", beschriftung(), if offen.get() { "" } else { "-rotate-90" })>
+                    <Icon icon=icondata::LuChevronDown attr:class="opacity-60"/>
+                </span>
+            </button>
+            <Show when=move || offen.get()>
+                <ul class=move || format!("mt-1 flex flex-col gap-1 {}", einzug())>{children()}</ul>
+            </Show>
+        </li>
     }
 }
 
