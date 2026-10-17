@@ -11,3 +11,4 @@ pub mod mitarbeiter;
 pub mod modul;
 pub mod rolle;
 pub mod termin;
+pub mod weiterbildung;

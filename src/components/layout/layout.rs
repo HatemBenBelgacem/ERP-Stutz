@@ -8,23 +8,32 @@ use leptos_router::hooks::use_location;
 use crate::app::use_sitzung;
 use crate::models::Bereich;
 
+/// Ein Menüpunkt; sichtbar, sobald einer seiner Bereiche sichtbar ist.
+#[derive(Clone, Copy)]
+struct Ziel {
+    text: &'static str,
+    href: &'static str,
+    icon: icondata::Icon,
+    bereiche: &'static [Bereich],
+}
+
 /// Navigation in Gruppen; Gruppen mit Titel lassen sich einklappen,
 /// Gruppen ohne Titel stehen für sich.
-const NAVIGATION: [(Option<(&str, icondata::Icon)>, &[(Bereich, icondata::Icon)]); 2] = [
+const NAVIGATION: [(Option<(&str, icondata::Icon)>, &[Ziel]); 2] = [
     (
         Some(("Personal", icondata::LuBriefcase)),
         &[
-            (Bereich::Termine, icondata::LuCalendar),
-            (Bereich::Kurse, icondata::LuBookOpen),
-            (Bereich::Mitarbeiter, icondata::LuUsers),
+            // Termine und Kurse als Reiter
+            Ziel { text: "Weiterbildung", href: "/personal/weiterbildung", icon: icondata::LuGraduationCap, bereiche: &Bereich::WEITERBILDUNG },
+            Ziel { text: "Mitarbeiter", href: "/personal/mitarbeiter", icon: icondata::LuUsers, bereiche: &[Bereich::Mitarbeiter] },
         ],
     ),
     (
         None,
         &[
-            (Bereich::Einkauf, icondata::LuShoppingCart),
-            (Bereich::Projekte, icondata::LuConstruction),
-            (Bereich::Finanzen, icondata::LuWallet),
+            Ziel { text: "Einkauf", href: "/einkauf", icon: icondata::LuShoppingCart, bereiche: &[Bereich::Einkauf] },
+            Ziel { text: "Projekte", href: "/projekte", icon: icondata::LuConstruction, bereiche: &[Bereich::Projekte] },
+            Ziel { text: "Finanzen", href: "/finanzen", icon: icondata::LuWallet, bereiche: &[Bereich::Finanzen] },
         ],
     ),
 ];
@@ -108,13 +117,14 @@ fn Sidebar(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl Int
                     {NAVIGATION
                         .into_iter()
                         .map(|(gruppe, eintraege)| {
-                            let sichtbar = move || eintraege.iter().any(|(b, _)| sitzung.sieht(*b) == Some(true));
+                            let sieht = move |ziel: &Ziel| ziel.bereiche.iter().any(|b| sitzung.sieht(*b) == Some(true));
+                            let sichtbar = move || eintraege.iter().any(sieht);
                             let liste = move || {
                                 eintraege
                                     .iter()
-                                    .map(|&(bereich, icon)| view! {
-                                        <Show when=move || sitzung.sieht(bereich) == Some(true)>
-                                            <NavEintrag href=bereich.pfad() text=bereich.titel() icon eingeklappt mobil_offen/>
+                                    .map(|&ziel| view! {
+                                        <Show when=move || sieht(&ziel)>
+                                            <NavEintrag href=ziel.href text=ziel.text icon=ziel.icon exact=false eingeklappt mobil_offen/>
                                         </Show>
                                     })
                                     .collect_view()
@@ -158,13 +168,13 @@ fn beschriftung_klassen(eingeklappt: bool) -> &'static str {
 fn NavGruppe(
     titel: &'static str,
     icon: icondata::Icon,
-    eintraege: &'static [(Bereich, icondata::Icon)],
+    eintraege: &'static [Ziel],
     eingeklappt: RwSignal<bool>,
     children: ChildrenFn,
 ) -> impl IntoView {
     let offen = RwSignal::new(true);
     let pfad = use_location().pathname;
-    let aktiv = move || pfad.with(|p| eintraege.iter().any(|(b, _)| p.starts_with(b.pfad())));
+    let aktiv = move || pfad.with(|p| eintraege.iter().any(|z| p.starts_with(z.href)));
     let beschriftung = move || beschriftung_klassen(eingeklappt.get());
     // Als Icon-Leiste ohne Einzug und Linie
     let einzug = move || {

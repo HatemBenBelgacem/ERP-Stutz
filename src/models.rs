@@ -129,6 +129,8 @@ pub enum Bereich {
 impl Bereich {
     /// Bereiche der Gruppe „Personal“
     pub const PERSONAL: [Bereich; 3] = [Bereich::Termine, Bereich::Kurse, Bereich::Mitarbeiter];
+    /// Reiter unter „Personal › Weiterbildung“
+    pub const WEITERBILDUNG: [Bereich; 2] = [Bereich::Termine, Bereich::Kurse];
     pub const HAUPTBEREICHE: [Bereich; 6] = [
         Bereich::Termine,
         Bereich::Kurse,
@@ -178,8 +180,8 @@ impl Bereich {
 
     pub fn pfad(self) -> &'static str {
         match self {
-            Bereich::Termine => "/personal/termine",
-            Bereich::Kurse => "/personal/kurse",
+            Bereich::Termine => "/personal/weiterbildung/termine",
+            Bereich::Kurse => "/personal/weiterbildung/kurse",
             Bereich::Mitarbeiter => "/personal/mitarbeiter",
             Bereich::Einkauf => "/einkauf",
             Bereich::Projekte => "/projekte",

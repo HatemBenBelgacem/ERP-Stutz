@@ -15,6 +15,7 @@ use crate::components::mitarbeiter::MitarbeiterSeite;
 use crate::components::modul::ModulSeite;
 use crate::components::rolle::RollenSeite;
 use crate::components::termin::TerminSeite;
+use crate::components::weiterbildung::{WeiterbildungSeite, WeiterbildungStart};
 use crate::models::{Aktion, Benutzer, Bereich};
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
@@ -137,14 +138,17 @@ pub fn App() -> impl IntoView {
                     <Route path=StaticSegment("") view=Startseite/>
                     <ParentRoute path=StaticSegment("personal") view=Outlet>
                         <Route path=StaticSegment("") view=Startseite/>
-                        <Route
-                            path=StaticSegment("termine")
-                            view=|| view! { <Bereichsschutz bereich=Bereich::Termine><TerminSeite/></Bereichsschutz> }
-                        />
-                        <Route
-                            path=StaticSegment("kurse")
-                            view=|| view! { <Bereichsschutz bereich=Bereich::Kurse><KursSeite/></Bereichsschutz> }
-                        />
+                        <ParentRoute path=StaticSegment("weiterbildung") view=WeiterbildungSeite>
+                            <Route path=StaticSegment("") view=WeiterbildungStart/>
+                            <Route
+                                path=StaticSegment("termine")
+                                view=|| view! { <Bereichsschutz bereich=Bereich::Termine><TerminSeite/></Bereichsschutz> }
+                            />
+                            <Route
+                                path=StaticSegment("kurse")
+                                view=|| view! { <Bereichsschutz bereich=Bereich::Kurse><KursSeite/></Bereichsschutz> }
+                            />
+                        </ParentRoute>
                         <Route
                             path=StaticSegment("mitarbeiter")
                             view=|| view! { <Bereichsschutz bereich=Bereich::Mitarbeiter><MitarbeiterSeite/></Bereichsschutz> }

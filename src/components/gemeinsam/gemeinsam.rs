@@ -2,6 +2,10 @@
 
 use leptos::prelude::*;
 use leptos_icons::Icon;
+use leptos_router::components::{A, Outlet, Redirect};
+
+use crate::app::use_sitzung;
+use crate::models::Bereich;
 
 // ----------------------------------------------------------------- Bausteine
 
@@ -142,6 +146,61 @@ pub fn Laden() -> impl IntoView {
         <div class="flex justify-center p-8">
             <span class="loading loading-spinner loading-lg text-primary"></span>
         </div>
+    }
+}
+
+/// Rahmen für einen Abschnitt mit Reitern; jeder Reiter nur mit dem Recht
+/// „Sehen“ für seinen Bereich.
+#[component]
+pub fn Reiterseite(
+    titel: &'static str,
+    untertitel: &'static str,
+    reiter: &'static [(Bereich, icondata::Icon)],
+) -> impl IntoView {
+    let sitzung = use_sitzung();
+    view! {
+        <div class="mb-4">
+            <h1 class="text-xl font-bold sm:text-2xl">{titel}</h1>
+            <p class="text-sm text-base-content/60">{untertitel}</p>
+        </div>
+        <Transition>
+            <div role="tablist" class="tabs tabs-border mb-6">
+                {reiter
+                    .iter()
+                    .map(|&(bereich, icon)| view! {
+                        <Show when=move || sitzung.sieht(bereich) == Some(true)>
+                            <A
+                                href=bereich.pfad()
+                                attr:role="tab"
+                                attr:class="tab gap-2 aria-[current=page]:tab-active"
+                            >
+                                <Icon icon/>
+                                {bereich.titel()}
+                            </A>
+                        </Show>
+                    })
+                    .collect_view()}
+            </div>
+        </Transition>
+        <Outlet/>
+    }
+}
+
+/// Abschnitt ohne Reiter in der Adresse: zum ersten erlaubten Reiter weiterleiten.
+#[component]
+pub fn ReiterStart(bereiche: &'static [Bereich]) -> impl IntoView {
+    let sitzung = use_sitzung();
+    view! {
+        <Transition>
+            {move || sitzung.benutzer().map(|b| {
+                let ziel = bereiche
+                    .iter()
+                    .find(|e| b.sieht(**e))
+                    .map(|e| e.pfad())
+                    .unwrap_or_else(|| b.startseite());
+                view! { <Redirect path=ziel/> }
+            })}
+        </Transition>
     }
 }
 
