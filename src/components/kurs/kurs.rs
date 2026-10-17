@@ -62,7 +62,7 @@ pub fn KursSeite() -> impl IntoView {
     });
 
     view! {
-        <Seitenkopf titel="Kurse" untertitel="Angebotene Weiterbildungen verwalten">
+        <Seitenkopf titel="Kurse" untertitel="Angebotene Kurse verwalten">
             <Show when=move || darf_anlegen.get()>
                 <button class="btn btn-primary" on:click=move |_| neu()>
                     <Icon icon=icondata::LuPlus/>

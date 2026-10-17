@@ -60,7 +60,7 @@ pub fn MitarbeiterSeite() -> impl IntoView {
     });
 
     view! {
-        <Seitenkopf titel="Mitarbeiter" untertitel="Personen, die an Weiterbildungen teilnehmen">
+        <Seitenkopf titel="Mitarbeiter" untertitel="Mitarbeitende der Stutz AG verwalten">
             <Show when=move || darf_anlegen.get()>
                 <button class="btn btn-primary" on:click=move |_| neu()>
                     <Icon icon=icondata::LuPlus/>
