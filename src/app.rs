@@ -159,8 +159,16 @@ pub fn App() -> impl IntoView {
                         view=|| view! { <Bereichsschutz bereich=Bereich::Einkauf><ModulSeite bereich=Bereich::Einkauf/></Bereichsschutz> }
                     />
                     <Route
+                        path=StaticSegment("lager")
+                        view=|| view! { <Bereichsschutz bereich=Bereich::Lager><ModulSeite bereich=Bereich::Lager/></Bereichsschutz> }
+                    />
+                    <Route
                         path=StaticSegment("projekte")
                         view=|| view! { <Bereichsschutz bereich=Bereich::Projekte><ModulSeite bereich=Bereich::Projekte/></Bereichsschutz> }
+                    />
+                    <Route
+                        path=StaticSegment("werkhof")
+                        view=|| view! { <Bereichsschutz bereich=Bereich::Werkhof><ModulSeite bereich=Bereich::Werkhof/></Bereichsschutz> }
                     />
                     <Route
                         path=StaticSegment("finanzen")

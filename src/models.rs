@@ -120,7 +120,9 @@ pub enum Bereich {
     Kurse,
     Mitarbeiter,
     Einkauf,
+    Lager,
     Projekte,
+    Werkhof,
     Finanzen,
     Benutzer,
     Rollen,
@@ -131,21 +133,25 @@ impl Bereich {
     pub const PERSONAL: [Bereich; 3] = [Bereich::Termine, Bereich::Kurse, Bereich::Mitarbeiter];
     /// Reiter unter „Personal › Weiterbildung“
     pub const WEITERBILDUNG: [Bereich; 2] = [Bereich::Termine, Bereich::Kurse];
-    pub const HAUPTBEREICHE: [Bereich; 6] = [
+    pub const HAUPTBEREICHE: [Bereich; 8] = [
         Bereich::Termine,
         Bereich::Kurse,
         Bereich::Mitarbeiter,
         Bereich::Einkauf,
+        Bereich::Lager,
         Bereich::Projekte,
+        Bereich::Werkhof,
         Bereich::Finanzen,
     ];
     pub const EINSTELLUNGEN: [Bereich; 2] = [Bereich::Benutzer, Bereich::Rollen];
-    pub const ALLE: [Bereich; 8] = [
+    pub const ALLE: [Bereich; 10] = [
         Bereich::Termine,
         Bereich::Kurse,
         Bereich::Mitarbeiter,
         Bereich::Einkauf,
+        Bereich::Lager,
         Bereich::Projekte,
+        Bereich::Werkhof,
         Bereich::Finanzen,
         Bereich::Benutzer,
         Bereich::Rollen,
@@ -158,7 +164,9 @@ impl Bereich {
             Bereich::Kurse => "kurse",
             Bereich::Mitarbeiter => "mitarbeiter",
             Bereich::Einkauf => "einkauf",
+            Bereich::Lager => "lager",
             Bereich::Projekte => "projekte",
+            Bereich::Werkhof => "werkhof",
             Bereich::Finanzen => "finanzen",
             Bereich::Benutzer => "benutzer",
             Bereich::Rollen => "rollen",
@@ -171,7 +179,9 @@ impl Bereich {
             Bereich::Kurse => "Kurse",
             Bereich::Mitarbeiter => "Mitarbeiter",
             Bereich::Einkauf => "Einkauf",
+            Bereich::Lager => "Lager",
             Bereich::Projekte => "Projekte",
+            Bereich::Werkhof => "Werkhof",
             Bereich::Finanzen => "Finanzen",
             Bereich::Benutzer => "Benutzer",
             Bereich::Rollen => "Rollen",
@@ -184,7 +194,9 @@ impl Bereich {
             Bereich::Kurse => "/personal/weiterbildung/kurse",
             Bereich::Mitarbeiter => "/personal/mitarbeiter",
             Bereich::Einkauf => "/einkauf",
+            Bereich::Lager => "/lager",
             Bereich::Projekte => "/projekte",
+            Bereich::Werkhof => "/werkhof",
             Bereich::Finanzen => "/finanzen",
             Bereich::Benutzer => "/einstellungen/benutzer",
             Bereich::Rollen => "/einstellungen/rollen",
@@ -206,7 +218,9 @@ impl Bereich {
     pub fn aktionen(self) -> &'static [Aktion] {
         match self {
             // Noch ohne Inhalte, daher nur sichtbar schalten
-            Bereich::Einkauf | Bereich::Projekte | Bereich::Finanzen => &[Aktion::Sehen],
+            Bereich::Einkauf | Bereich::Lager | Bereich::Projekte | Bereich::Werkhof | Bereich::Finanzen => {
+                &[Aktion::Sehen]
+            }
             _ => &Aktion::ALLE,
         }
     }

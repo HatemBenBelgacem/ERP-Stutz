@@ -32,7 +32,9 @@ const NAVIGATION: [(Option<(&str, icondata::Icon)>, &[Ziel]); 2] = [
         None,
         &[
             Ziel { text: "Einkauf", href: "/einkauf", icon: icondata::LuShoppingCart, bereiche: &[Bereich::Einkauf] },
+            Ziel { text: "Lager", href: "/lager", icon: icondata::LuWarehouse, bereiche: &[Bereich::Lager] },
             Ziel { text: "Projekte", href: "/projekte", icon: icondata::LuConstruction, bereiche: &[Bereich::Projekte] },
+            Ziel { text: "Werkhof", href: "/werkhof", icon: icondata::LuTruck, bereiche: &[Bereich::Werkhof] },
             Ziel { text: "Finanzen", href: "/finanzen", icon: icondata::LuWallet, bereiche: &[Bereich::Finanzen] },
         ],
     ),
