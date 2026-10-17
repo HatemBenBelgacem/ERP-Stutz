@@ -31,20 +31,6 @@ mod hilfe {
     }
 }
 
-// ---------------------------------------------------------------- Übersicht
-
-#[server(input = Json)]
-pub async fn statistik() -> Result<(i64, i64, i64), ServerFnError> {
-    crate::backend::auth::server::recht_pflicht(&[(Bereich::Uebersicht, Aktion::Sehen)]).await?;
-    use crate::backend::db::{fehler, pool};
-    sqlx::query_as(
-        "SELECT (SELECT COUNT(*) FROM kurs), (SELECT COUNT(*) FROM mitarbeiter), (SELECT COUNT(*) FROM termin)",
-    )
-    .fetch_one(pool())
-    .await
-    .map_err(fehler)
-}
-
 // -------------------------------------------------------------------- Kurse
 
 #[server(input = Json)]

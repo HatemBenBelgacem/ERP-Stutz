@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
 use leptos_router::StaticSegment;
-use leptos_router::components::{ParentRoute, ProtectedParentRoute, Redirect, Route, Router, Routes};
+use leptos_router::components::{Outlet, ParentRoute, ProtectedParentRoute, Redirect, Route, Router, Routes};
 
 use crate::backend::auth::{Abmelden, Anmelden, Registrieren, aktueller_benutzer_laden};
 use crate::components::anmeldung::{AnmeldeSeite, RegistrierSeite};
@@ -12,9 +12,9 @@ use crate::components::kein_zugriff::KeinZugriff;
 use crate::components::kurs::KursSeite;
 use crate::components::layout::Layout;
 use crate::components::mitarbeiter::MitarbeiterSeite;
+use crate::components::modul::ModulSeite;
 use crate::components::rolle::RollenSeite;
 use crate::components::termin::TerminSeite;
-use crate::components::uebersicht::Uebersicht;
 use crate::models::{Aktion, Benutzer, Bereich};
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
@@ -120,9 +120,9 @@ pub fn App() -> impl IntoView {
 
     view! {
         <Stylesheet id="leptos" href="/pkg/weiterbildung.css"/>
-        <Title text="Weiterbildung"/>
+        <Title text="ERP-Stutz AG"/>
         <Router>
-            <Routes fallback=|| view! { <Leer symbol=icondata::LuGraduationCap text="Seite nicht gefunden."/> }>
+            <Routes fallback=|| view! { <Leer symbol=icondata::LuHardHat text="Seite nicht gefunden."/> }>
                 <Route path=StaticSegment("anmelden") view=AnmeldeSeite/>
                 <Route path=StaticSegment("registrieren") view=RegistrierSeite/>
                 // Alles Weitere nur mit Anmeldung
@@ -133,21 +133,34 @@ pub fn App() -> impl IntoView {
                     redirect_path=|| "/anmelden"
                 >
                     // Jeder Bereich nur mit dem Recht „Sehen“ (siehe Bereichsschutz)
+                    // Startseite: erster Bereich, den der Benutzer sehen darf
+                    <Route path=StaticSegment("") view=Startseite/>
+                    <ParentRoute path=StaticSegment("personal") view=Outlet>
+                        <Route path=StaticSegment("") view=Startseite/>
+                        <Route
+                            path=StaticSegment("termine")
+                            view=|| view! { <Bereichsschutz bereich=Bereich::Termine><TerminSeite/></Bereichsschutz> }
+                        />
+                        <Route
+                            path=StaticSegment("kurse")
+                            view=|| view! { <Bereichsschutz bereich=Bereich::Kurse><KursSeite/></Bereichsschutz> }
+                        />
+                        <Route
+                            path=StaticSegment("mitarbeiter")
+                            view=|| view! { <Bereichsschutz bereich=Bereich::Mitarbeiter><MitarbeiterSeite/></Bereichsschutz> }
+                        />
+                    </ParentRoute>
                     <Route
-                        path=StaticSegment("")
-                        view=|| view! { <Bereichsschutz bereich=Bereich::Uebersicht><Uebersicht/></Bereichsschutz> }
+                        path=StaticSegment("einkauf")
+                        view=|| view! { <Bereichsschutz bereich=Bereich::Einkauf><ModulSeite bereich=Bereich::Einkauf/></Bereichsschutz> }
                     />
                     <Route
-                        path=StaticSegment("kurse")
-                        view=|| view! { <Bereichsschutz bereich=Bereich::Kurse><KursSeite/></Bereichsschutz> }
+                        path=StaticSegment("projekte")
+                        view=|| view! { <Bereichsschutz bereich=Bereich::Projekte><ModulSeite bereich=Bereich::Projekte/></Bereichsschutz> }
                     />
                     <Route
-                        path=StaticSegment("mitarbeiter")
-                        view=|| view! { <Bereichsschutz bereich=Bereich::Mitarbeiter><MitarbeiterSeite/></Bereichsschutz> }
-                    />
-                    <Route
-                        path=StaticSegment("termine")
-                        view=|| view! { <Bereichsschutz bereich=Bereich::Termine><TerminSeite/></Bereichsschutz> }
+                        path=StaticSegment("finanzen")
+                        view=|| view! { <Bereichsschutz bereich=Bereich::Finanzen><ModulSeite bereich=Bereich::Finanzen/></Bereichsschutz> }
                     />
                     <ParentRoute path=StaticSegment("einstellungen") view=EinstellungenSeite>
                         <Route path=StaticSegment("") view=EinstellungenStart/>
@@ -164,6 +177,17 @@ pub fn App() -> impl IntoView {
                 </ProtectedParentRoute>
             </Routes>
         </Router>
+    }
+}
+
+/// Leitet zum ersten Bereich weiter, den der Benutzer sehen darf.
+#[component]
+fn Startseite() -> impl IntoView {
+    let sitzung = use_sitzung();
+    view! {
+        <Transition>
+            {move || sitzung.benutzer().map(|b| view! { <Redirect path=b.startseite()/> })}
+        </Transition>
     }
 }
 

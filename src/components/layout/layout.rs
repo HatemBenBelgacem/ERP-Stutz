@@ -7,11 +7,24 @@ use leptos_router::components::{A, Outlet};
 use crate::app::use_sitzung;
 use crate::models::Bereich;
 
-const NAVIGATION: [(Bereich, icondata::Icon); 4] = [
-    (Bereich::Uebersicht, icondata::LuLayoutDashboard),
-    (Bereich::Termine, icondata::LuCalendar),
-    (Bereich::Kurse, icondata::LuBookOpen),
-    (Bereich::Mitarbeiter, icondata::LuUsers),
+/// Navigation in Gruppen; Gruppen ohne Titel stehen für sich.
+const NAVIGATION: [(Option<&str>, &[(Bereich, icondata::Icon)]); 2] = [
+    (
+        Some("Personal"),
+        &[
+            (Bereich::Termine, icondata::LuCalendar),
+            (Bereich::Kurse, icondata::LuBookOpen),
+            (Bereich::Mitarbeiter, icondata::LuUsers),
+        ],
+    ),
+    (
+        None,
+        &[
+            (Bereich::Einkauf, icondata::LuShoppingCart),
+            (Bereich::Projekte, icondata::LuConstruction),
+            (Bereich::Finanzen, icondata::LuWallet),
+        ],
+    ),
 ];
 
 #[component]
@@ -38,16 +51,17 @@ pub fn Layout() -> impl IntoView {
 #[component]
 fn Header(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl IntoView {
     view! {
-        <header class="navbar z-50 h-16 min-h-16 gap-2 border-b border-base-300 bg-base-100 px-3">
+        // Farben wie stutzag.ch: gelber Balken, schwarze Schrift
+        <header class="navbar z-50 h-16 min-h-16 gap-2 border-b border-stutz-dunkel bg-stutz px-3 text-black">
             <button
-                class="btn btn-ghost btn-square md:hidden"
+                class="btn btn-ghost btn-square text-black hover:border-transparent hover:bg-black/10 md:hidden"
                 aria-label="Navigation öffnen"
                 on:click=move |_| mobil_offen.update(|o| *o = !*o)
             >
                 <Icon icon=icondata::LuMenu width="1.25rem" height="1.25rem"/>
             </button>
             <button
-                class="btn btn-ghost btn-square hidden lg:inline-flex"
+                class="btn btn-ghost btn-square hidden text-black hover:border-transparent hover:bg-black/10 lg:inline-flex"
                 title=move || if eingeklappt.get() { "Navigation ausklappen" } else { "Navigation einklappen" }
                 aria-label="Navigation ein- oder ausklappen"
                 on:click=move |_| eingeklappt.update(|e| *e = !*e)
@@ -57,11 +71,11 @@ fn Header(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl Into
                     view! { <Icon icon=symbol width="1.25rem" height="1.25rem"/> }
                 }}
             </button>
-            <A href="/" attr:class="flex items-center gap-2 text-lg font-semibold">
-                <span class="rounded-field bg-primary p-1.5 text-primary-content">
-                    <Icon icon=icondata::LuGraduationCap width="1.25rem" height="1.25rem"/>
+            <A href="/" attr:class="flex items-center gap-2 text-lg font-black tracking-tight">
+                <span class="rounded-field bg-black p-1.5 text-stutz">
+                    <Icon icon=icondata::LuHardHat width="1.25rem" height="1.25rem"/>
                 </span>
-                "Weiterbildung"
+                "ERP-Stutz AG"
             </A>
             <div class="flex-1"></div>
             <Benutzermenue/>
@@ -91,10 +105,21 @@ fn Sidebar(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl Int
                 <Transition>
                     {NAVIGATION
                         .into_iter()
-                        .map(|(bereich, icon)| view! {
-                            <Show when=move || sitzung.sieht(bereich) == Some(true)>
-                                <NavEintrag href=bereich.pfad() text=bereich.titel() icon eingeklappt mobil_offen/>
-                            </Show>
+                        .map(|(gruppe, eintraege)| {
+                            let sichtbar = move || eintraege.iter().any(|(b, _)| sitzung.sieht(*b) == Some(true));
+                            view! {
+                                <Show when=sichtbar>
+                                    <NavGruppe titel=gruppe eingeklappt/>
+                                    {eintraege
+                                        .iter()
+                                        .map(|&(bereich, icon)| view! {
+                                            <Show when=move || sitzung.sieht(bereich) == Some(true)>
+                                                <NavEintrag href=bereich.pfad() text=bereich.titel() icon eingeklappt mobil_offen/>
+                                            </Show>
+                                        })
+                                        .collect_view()}
+                                </Show>
+                            }
                         })
                         .collect_view()}
                 </Transition>
@@ -115,6 +140,18 @@ fn Sidebar(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl Int
 /// Menütexte: auf dem Tablet immer ausgeblendet, auf dem Desktop nur eingeklappt.
 fn beschriftung_klassen(eingeklappt: bool) -> &'static str {
     if eingeklappt { "md:hidden" } else { "md:max-lg:hidden" }
+}
+
+/// Beginn einer Gruppe: Trennlinie (nicht vor der ersten) und Titel; als
+/// Icon-Leiste bleibt nur die Trennlinie.
+#[component]
+fn NavGruppe(titel: Option<&'static str>, eingeklappt: RwSignal<bool>) -> impl IntoView {
+    view! {
+        <li class="pointer-events-none mx-2 my-2 h-px bg-base-300 p-0 first:hidden" aria-hidden="true"></li>
+        {titel.map(|titel| view! {
+            <li class=move || format!("menu-title {}", beschriftung_klassen(eingeklappt.get()))>{titel}</li>
+        })}
+    }
 }
 
 #[component]

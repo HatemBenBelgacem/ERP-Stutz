@@ -113,25 +113,38 @@ pub struct Rolle {
     pub anzahl_benutzer: i64,
 }
 
-/// Bereiche der App. Die letzten beiden liegen unter „Einstellungen“.
+/// Bereiche der App. Benutzer und Rollen liegen unter „Einstellungen“.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Bereich {
-    Uebersicht,
     Termine,
     Kurse,
     Mitarbeiter,
+    Einkauf,
+    Projekte,
+    Finanzen,
     Benutzer,
     Rollen,
 }
 
 impl Bereich {
-    pub const HAUPTBEREICHE: [Bereich; 4] = [Bereich::Uebersicht, Bereich::Termine, Bereich::Kurse, Bereich::Mitarbeiter];
-    pub const EINSTELLUNGEN: [Bereich; 2] = [Bereich::Benutzer, Bereich::Rollen];
-    pub const ALLE: [Bereich; 6] = [
-        Bereich::Uebersicht,
+    /// Bereiche der Gruppe „Personal“
+    pub const PERSONAL: [Bereich; 3] = [Bereich::Termine, Bereich::Kurse, Bereich::Mitarbeiter];
+    pub const HAUPTBEREICHE: [Bereich; 6] = [
         Bereich::Termine,
         Bereich::Kurse,
         Bereich::Mitarbeiter,
+        Bereich::Einkauf,
+        Bereich::Projekte,
+        Bereich::Finanzen,
+    ];
+    pub const EINSTELLUNGEN: [Bereich; 2] = [Bereich::Benutzer, Bereich::Rollen];
+    pub const ALLE: [Bereich; 8] = [
+        Bereich::Termine,
+        Bereich::Kurse,
+        Bereich::Mitarbeiter,
+        Bereich::Einkauf,
+        Bereich::Projekte,
+        Bereich::Finanzen,
         Bereich::Benutzer,
         Bereich::Rollen,
     ];
@@ -139,10 +152,12 @@ impl Bereich {
     /// Wert in der Datenbank
     pub fn schluessel(self) -> &'static str {
         match self {
-            Bereich::Uebersicht => "uebersicht",
             Bereich::Termine => "termine",
             Bereich::Kurse => "kurse",
             Bereich::Mitarbeiter => "mitarbeiter",
+            Bereich::Einkauf => "einkauf",
+            Bereich::Projekte => "projekte",
+            Bereich::Finanzen => "finanzen",
             Bereich::Benutzer => "benutzer",
             Bereich::Rollen => "rollen",
         }
@@ -150,10 +165,12 @@ impl Bereich {
 
     pub fn titel(self) -> &'static str {
         match self {
-            Bereich::Uebersicht => "Übersicht",
             Bereich::Termine => "Termine",
             Bereich::Kurse => "Kurse",
             Bereich::Mitarbeiter => "Mitarbeiter",
+            Bereich::Einkauf => "Einkauf",
+            Bereich::Projekte => "Projekte",
+            Bereich::Finanzen => "Finanzen",
             Bereich::Benutzer => "Benutzer",
             Bereich::Rollen => "Rollen",
         }
@@ -161,19 +178,33 @@ impl Bereich {
 
     pub fn pfad(self) -> &'static str {
         match self {
-            Bereich::Uebersicht => "/",
-            Bereich::Termine => "/termine",
-            Bereich::Kurse => "/kurse",
-            Bereich::Mitarbeiter => "/mitarbeiter",
+            Bereich::Termine => "/personal/termine",
+            Bereich::Kurse => "/personal/kurse",
+            Bereich::Mitarbeiter => "/personal/mitarbeiter",
+            Bereich::Einkauf => "/einkauf",
+            Bereich::Projekte => "/projekte",
+            Bereich::Finanzen => "/finanzen",
             Bereich::Benutzer => "/einstellungen/benutzer",
             Bereich::Rollen => "/einstellungen/rollen",
+        }
+    }
+
+    /// Gruppe in Navigation und Rechteverwaltung
+    pub fn gruppe(self) -> Option<&'static str> {
+        if Bereich::PERSONAL.contains(&self) {
+            Some("Personal")
+        } else if Bereich::EINSTELLUNGEN.contains(&self) {
+            Some("Einstellungen")
+        } else {
+            None
         }
     }
 
     /// Funktionen, die sich in diesem Bereich berechtigen lassen.
     pub fn aktionen(self) -> &'static [Aktion] {
         match self {
-            Bereich::Uebersicht => &[Aktion::Sehen],
+            // Noch ohne Inhalte, daher nur sichtbar schalten
+            Bereich::Einkauf | Bereich::Projekte | Bereich::Finanzen => &[Aktion::Sehen],
             _ => &Aktion::ALLE,
         }
     }

@@ -140,7 +140,7 @@ fn teilnehmerliste_pdf(d: &TerminDaten) -> Vec<u8> {
     let mut y = HOEHE - RAND;
 
     // Kopf
-    doc.text(RAND, y, 9.0, Schrift::Normal, Grau::Mittel, "WEITERBILDUNG");
+    doc.text(RAND, y, 9.0, Schrift::Normal, Grau::Mittel, "ERP-STUTZ AG");
     y -= 24.0;
     doc.text(RAND, y, 20.0, Schrift::Fett, Grau::Schwarz, "Teilnehmerliste");
     y -= 26.0;
@@ -304,7 +304,7 @@ impl Dokument {
         objekt(&mut pdf, format!("<< /Type /Pages /Kids [{}] /Count {anzahl} >>", kinder.join(" ")).as_bytes());
         objekt(&mut pdf, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
         objekt(&mut pdf, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
-        let mut info = b"<< /Producer (Weiterbildung) /Title (".to_vec();
+        let mut info = b"<< /Producer (ERP-Stutz AG) /Title (".to_vec();
         info.extend(pdf_text(&self.titel));
         info.extend(b") >>");
         objekt(&mut pdf, &info);

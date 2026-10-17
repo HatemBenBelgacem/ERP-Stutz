@@ -4,6 +4,12 @@
   themes: light --default;
 }
 
+/* Hausfarben der Stutz AG (stutzag.ch) */
+@theme {
+  --color-stutz: #ffd000;
+  --color-stutz-dunkel: #e9b500;
+}
+
 /* Helle Farbpalette, auch wenn das System im Dark Mode ist */
 :root {
   color-scheme: light;

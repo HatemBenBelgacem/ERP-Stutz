@@ -9,7 +9,7 @@ use crate::components::gemeinsam::{Fehlermeldung, ergebnis_beobachten};
 use crate::models::PASSWORT_MIN_LAENGE;
 
 /// Zentrierte Karte mit Logo für Anmelden und Registrieren. Wer schon
-/// angemeldet ist, wird direkt zur Übersicht weitergeleitet.
+/// angemeldet ist, wird direkt zur Startseite weitergeleitet.
 #[component]
 fn KontoRahmen(titel: &'static str, untertitel: &'static str, children: Children) -> impl IntoView {
     let sitzung = use_sitzung();
@@ -21,8 +21,8 @@ fn KontoRahmen(titel: &'static str, untertitel: &'static str, children: Children
             <div class="card w-full max-w-sm border border-base-300 bg-base-100 shadow-sm">
                 <div class="card-body gap-4">
                     <div class="flex flex-col items-center gap-2 text-center">
-                        <span class="rounded-box bg-primary p-3 text-primary-content">
-                            <Icon icon=icondata::LuGraduationCap width="1.75rem" height="1.75rem"/>
+                        <span class="rounded-box bg-stutz p-3 text-black">
+                            <Icon icon=icondata::LuHardHat width="1.75rem" height="1.75rem"/>
                         </span>
                         <h1 class="text-xl font-bold">{titel}</h1>
                         <p class="text-sm text-base-content/60">{untertitel}</p>
@@ -52,7 +52,7 @@ pub fn AnmeldeSeite() -> impl IntoView {
     };
 
     view! {
-        <KontoRahmen titel="Anmelden" untertitel="Willkommen zurück bei der Weiterbildungsverwaltung">
+        <KontoRahmen titel="Anmelden" untertitel="Willkommen zurück bei ERP-Stutz AG">
             <form class="flex flex-col gap-3" on:submit=absenden>
                 <Fehlermeldung meldung/>
                 <label class="input w-full">
@@ -99,7 +99,7 @@ pub fn RegistrierSeite() -> impl IntoView {
     };
 
     view! {
-        <KontoRahmen titel="Registrieren" untertitel="Neues Konto für die Weiterbildungsverwaltung">
+        <KontoRahmen titel="Registrieren" untertitel="Neues Konto für ERP-Stutz AG">
             <form class="flex flex-col gap-3" on:submit=absenden>
                 <Fehlermeldung meldung/>
                 <label class="input w-full">

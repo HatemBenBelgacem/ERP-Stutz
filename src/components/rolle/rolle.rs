@@ -218,8 +218,8 @@ fn RechteMatrix(rechte: RwSignal<Vec<String>>) -> impl IntoView {
                         <tr>
                             <td>
                                 <div class="whitespace-nowrap">{bereich.titel()}</div>
-                                {Bereich::EINSTELLUNGEN.contains(&bereich).then(|| view! {
-                                    <div class="text-xs text-base-content/50">"Einstellungen"</div>
+                                {bereich.gruppe().map(|gruppe| view! {
+                                    <div class="text-xs text-base-content/50">{gruppe}</div>
                                 })}
                             </td>
                             {Aktion::ALLE.into_iter().map(|aktion| {
