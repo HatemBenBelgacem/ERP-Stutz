@@ -101,7 +101,7 @@ pub fn BenutzerSeite() -> impl IntoView {
                                 <Leer symbol=icondata::LuUserCog text="Noch keine Benutzer."/>
                             }.into_any(),
                             Ok(liste) => view! {
-                                <table class="table max-sm:table-sm">
+                                <table class="table table-zebra max-sm:table-sm">
                                     <thead>
                                         <tr>
                                             <th>"Name"</th>
@@ -118,7 +118,7 @@ pub fn BenutzerSeite() -> impl IntoView {
                                             let fuer_doppelklick = b.clone();
                                             let fuer_button = b.clone();
                                             view! {
-                                                <tr class="select-none hover:bg-base-200/50"
+                                                <tr class="select-none hover:bg-base-300/60"
                                                     class:cursor-pointer=move || darf_bearbeiten.get()
                                                     title=move || darf_bearbeiten.get().then_some("Doppelklick zum Bearbeiten")
                                                     on:dblclick=move |_| if darf_bearbeiten.get_untracked() {

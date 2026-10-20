@@ -82,7 +82,7 @@ pub fn KursSeite() -> impl IntoView {
                                 <Leer symbol=icondata::LuBookOpen text="Noch keine Kurse erfasst."/>
                             }.into_any(),
                             Ok(liste) => view! {
-                                <table class="table max-sm:table-sm">
+                                <table class="table table-zebra max-sm:table-sm">
                                     <thead><tr><th>"Titel"</th><th class="hidden md:table-cell">"Beschreibung"</th><th>"Dauer"</th><th></th></tr></thead>
                                     <tbody>
                                         {liste.into_iter().map(|k| {
@@ -98,7 +98,7 @@ pub fn KursSeite() -> impl IntoView {
                                                 dialog_offen.set(true);
                                             };
                                             view! {
-                                                <tr class="select-none hover:bg-base-200/50"
+                                                <tr class="select-none hover:bg-base-300/60"
                                                         class:cursor-pointer=move || darf_bearbeiten.get()
                                                         title=move || darf_bearbeiten.get().then_some("Doppelklick zum Bearbeiten")
                                                         on:dblclick={let bearbeiten = bearbeiten.clone(); move |_| if darf_bearbeiten.get_untracked() { bearbeiten() }}>

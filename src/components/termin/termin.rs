@@ -132,7 +132,7 @@ pub fn TerminSeite() -> impl IntoView {
                                     <Leer symbol=icondata::LuCalendar text="Noch keine Termine erfasst."/>
                                 }.into_any(),
                                 Ok(liste) => view! {
-                                    <table class="table max-sm:table-sm">
+                                    <table class="table table-zebra max-sm:table-sm">
                                         <thead>
                                             <tr>
                                                 <th>"Kurs"</th>
@@ -163,7 +163,7 @@ pub fn TerminSeite() -> impl IntoView {
                                                 let plaetze = format!("{belegt} / {}", t.max_teilnehmer);
                                                 let ist_offen = move || panel_termin.get() == Some(id);
                                                 view! {
-                                                    <tr class="select-none hover:bg-base-200/50"
+                                                    <tr class="select-none hover:bg-base-300/60"
                                                         class=("bg-primary/5", ist_offen)
                                                         class:cursor-pointer=move || darf_bearbeiten.get()
                                                         title=move || darf_bearbeiten.get().then_some("Doppelklick zum Bearbeiten")
@@ -458,7 +458,7 @@ fn TeilnehmerPanel(
                     view! { <Leer symbol=icondata::LuUsers text="Noch keine Teilnehmenden."/> }.into_any()
                 } else {
                     view! {
-                        <table class="table table-sm">
+                        <table class="table table-zebra table-sm">
                             <thead><tr><th>"Name"</th><th>"Abteilung"</th></tr></thead>
                             <tbody>
                                 {termin.mitarbeiter.into_iter().map(|m| view! {

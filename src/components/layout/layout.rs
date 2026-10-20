@@ -54,7 +54,7 @@ pub fn Layout() -> impl IntoView {
             <div class="flex flex-1 overflow-hidden">
                 <Sidebar eingeklappt mobil_offen/>
                 <main class="min-w-0 flex-1 overflow-y-auto p-3 sm:p-4 lg:p-8">
-                    <div class="mx-auto max-w-6xl"><Outlet/></div>
+                    <Outlet/>
                 </main>
             </div>
         </div>

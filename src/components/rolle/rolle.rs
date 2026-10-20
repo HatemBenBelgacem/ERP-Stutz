@@ -90,7 +90,7 @@ pub fn RollenSeite() -> impl IntoView {
                                 <Leer symbol=icondata::LuShieldCheck text="Noch keine Rollen."/>
                             }.into_any(),
                             Ok(liste) => view! {
-                                <table class="table max-sm:table-sm">
+                                <table class="table table-zebra max-sm:table-sm">
                                     <thead>
                                         <tr>
                                             <th>"Rolle"</th>
@@ -112,7 +112,7 @@ pub fn RollenSeite() -> impl IntoView {
                                             };
                                             let admin = r.ist_admin;
                                             view! {
-                                                <tr class="select-none hover:bg-base-200/50"
+                                                <tr class="select-none hover:bg-base-300/60"
                                                     class:cursor-pointer=move || darf_bearbeiten.get()
                                                     title=move || darf_bearbeiten.get().then_some("Doppelklick zum Bearbeiten")
                                                     on:dblclick=move |_| if darf_bearbeiten.get_untracked() {
@@ -206,7 +206,7 @@ fn RechteMatrix(rechte: RwSignal<Vec<String>>) -> impl IntoView {
 
     view! {
         <div class="overflow-x-auto rounded-box border border-base-300">
-            <table class="table table-sm">
+            <table class="table table-zebra table-sm">
                 <thead>
                     <tr>
                         <th>"Bereich"</th>
