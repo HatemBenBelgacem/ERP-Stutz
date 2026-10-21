@@ -36,11 +36,6 @@ pub fn fehler(e: sqlx::Error) -> ServerFnError {
                     "Der Kurs kann nicht gelöscht werden, solange noch Termine existieren.",
                 );
             }
-            Some("23503") if db.constraint() == Some("termin_adresse_id_fkey") => {
-                return ServerFnError::new(
-                    "Die Adresse kann nicht gelöscht werden, solange noch Termine dort stattfinden.",
-                );
-            }
             Some("23505") if db.constraint() == Some("geschaeftsbereich_beschreibung_key") => {
                 return ServerFnError::new("Einen Geschäftsbereich mit dieser Beschreibung gibt es bereits.");
             }

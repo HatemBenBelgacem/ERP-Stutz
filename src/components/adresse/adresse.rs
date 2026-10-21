@@ -115,7 +115,7 @@ pub fn AdresseSeite() -> impl IntoView {
                                                         <ZeilenAktionen
                                                             bearbeiten=bearbeiten.clone()
                                                             loeschen=move || {
-                                                                if bestaetigt("Adresse wirklich löschen?") {
+                                                                if bestaetigt("Adresse wirklich löschen? Termine an dieser Adresse verlieren ihre Adresse.") {
                                                                     loeschen.dispatch(AdresseLoeschen { id });
                                                                 }
                                                             }
