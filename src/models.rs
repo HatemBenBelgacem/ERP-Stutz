@@ -11,6 +11,38 @@ pub struct Kurs {
     pub titel: String,
     pub beschreibung: String,
     pub dauer_stunden: i32,
+    /// Zugeordnete Geschäftsbereiche (M:N)
+    pub geschaeftsbereich_ids: Vec<Uuid>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct Geschaeftsbereich {
+    pub id: Uuid,
+    pub beschreibung: String,
+}
+
+/// Durchführungsort; eine Adresse kann zu vielen Terminen gehören (1:N).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct Adresse {
+    pub id: Uuid,
+    pub bezeichnung: String,
+    pub strasse: String,
+    pub plz: String,
+    pub ort: String,
+}
+
+impl Adresse {
+    /// Einzeilige Anzeige, z. B. „Werkhof, Hauptstrasse 1, 8000 Zürich“.
+    pub fn anzeige(&self) -> String {
+        let plz_ort = format!("{} {}", self.plz, self.ort).trim().to_string();
+        [self.bezeichnung.as_str(), self.strasse.as_str(), plz_ort.as_str()]
+            .into_iter()
+            .filter(|t| !t.is_empty())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -29,7 +61,7 @@ impl Mitarbeiter {
     }
 }
 
-/// Termin inkl. zugehörigem Kurs (N:1) und Teilnehmenden (M:N).
+/// Termin inkl. zugehörigem Kurs (N:1), Adresse (N:1) und Teilnehmenden (M:N).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Termin {
     pub id: Uuid,
@@ -37,7 +69,7 @@ pub struct Termin {
     pub kurs_titel: String,
     pub beginn: NaiveDateTime,
     pub ende: NaiveDateTime,
-    pub ort: String,
+    pub adresse: Option<Adresse>,
     pub max_teilnehmer: i32,
     pub mitarbeiter: Vec<Mitarbeiter>,
 }
@@ -49,7 +81,7 @@ pub struct TerminEingabe {
     pub kurs_id: Uuid,
     pub beginn: String,
     pub ende: String,
-    pub ort: String,
+    pub adresse_id: Option<Uuid>,
     pub max_teilnehmer: i32,
     pub mitarbeiter_ids: Vec<Uuid>,
 }
@@ -118,7 +150,9 @@ pub struct Rolle {
 pub enum Bereich {
     Termine,
     Kurse,
+    Geschaeftsbereiche,
     Mitarbeiter,
+    Adressen,
     Einkauf,
     Lager,
     Projekte,
@@ -130,13 +164,15 @@ pub enum Bereich {
 
 impl Bereich {
     /// Bereiche der Gruppe „Personal“
-    pub const PERSONAL: [Bereich; 3] = [Bereich::Termine, Bereich::Kurse, Bereich::Mitarbeiter];
+    pub const PERSONAL: [Bereich; 4] = [Bereich::Termine, Bereich::Kurse, Bereich::Geschaeftsbereiche, Bereich::Mitarbeiter];
     /// Reiter unter „Personal › Weiterbildung“
-    pub const WEITERBILDUNG: [Bereich; 2] = [Bereich::Termine, Bereich::Kurse];
-    pub const HAUPTBEREICHE: [Bereich; 8] = [
+    pub const WEITERBILDUNG: [Bereich; 3] = [Bereich::Termine, Bereich::Kurse, Bereich::Geschaeftsbereiche];
+    pub const HAUPTBEREICHE: [Bereich; 10] = [
         Bereich::Termine,
         Bereich::Kurse,
+        Bereich::Geschaeftsbereiche,
         Bereich::Mitarbeiter,
+        Bereich::Adressen,
         Bereich::Einkauf,
         Bereich::Lager,
         Bereich::Projekte,
@@ -144,10 +180,12 @@ impl Bereich {
         Bereich::Finanzen,
     ];
     pub const EINSTELLUNGEN: [Bereich; 2] = [Bereich::Benutzer, Bereich::Rollen];
-    pub const ALLE: [Bereich; 10] = [
+    pub const ALLE: [Bereich; 12] = [
         Bereich::Termine,
         Bereich::Kurse,
+        Bereich::Geschaeftsbereiche,
         Bereich::Mitarbeiter,
+        Bereich::Adressen,
         Bereich::Einkauf,
         Bereich::Lager,
         Bereich::Projekte,
@@ -162,7 +200,9 @@ impl Bereich {
         match self {
             Bereich::Termine => "termine",
             Bereich::Kurse => "kurse",
+            Bereich::Geschaeftsbereiche => "geschaeftsbereiche",
             Bereich::Mitarbeiter => "mitarbeiter",
+            Bereich::Adressen => "adressen",
             Bereich::Einkauf => "einkauf",
             Bereich::Lager => "lager",
             Bereich::Projekte => "projekte",
@@ -177,7 +217,9 @@ impl Bereich {
         match self {
             Bereich::Termine => "Termine",
             Bereich::Kurse => "Kurse",
+            Bereich::Geschaeftsbereiche => "Geschäftsbereiche",
             Bereich::Mitarbeiter => "Mitarbeiter",
+            Bereich::Adressen => "Adressen",
             Bereich::Einkauf => "Einkauf",
             Bereich::Lager => "Lager",
             Bereich::Projekte => "Projekte",
@@ -192,7 +234,9 @@ impl Bereich {
         match self {
             Bereich::Termine => "/personal/weiterbildung/termine",
             Bereich::Kurse => "/personal/weiterbildung/kurse",
+            Bereich::Geschaeftsbereiche => "/personal/weiterbildung/geschaeftsbereiche",
             Bereich::Mitarbeiter => "/personal/mitarbeiter",
+            Bereich::Adressen => "/adressen",
             Bereich::Einkauf => "/einkauf",
             Bereich::Lager => "/lager",
             Bereich::Projekte => "/projekte",

@@ -3,15 +3,112 @@ use leptos_icons::Icon;
 use uuid::Uuid;
 
 use crate::app::{Recht, use_sitzung};
-use crate::backend::api::{TerminLoeschen, TerminSpeichern, kurse_laden, mitarbeiter_laden, termine_laden};
+use crate::backend::api::{
+    TerminLoeschen, TerminSpeichern, adressen_laden, kurse_laden, mitarbeiter_laden, termine_laden,
+};
 use crate::components::gemeinsam::{
-    Dialog, DialogAktionen, Fehlermeldung, Laden, Leer, Seitenkopf, ZeilenAktionen,
-    bestaetigt, ergebnis_beobachten, meldung_aus,
+    Dialog, Fehlermeldung, Laden, Leer, Seitenkopf, ZeilenAktionen, bestaetigt, ergebnis_beobachten,
+    meldung_aus,
 };
 use crate::models::{Aktion, Bereich, DATETIME_LOCAL, Mitarbeiter, Termin, TerminEingabe};
 
 const ANZEIGE_DATUM: &str = "%d.%m.%Y";
 const ANZEIGE_ZEIT: &str = "%H:%M";
+const STANDARD_MAX_TEILNEHMER: &str = "20";
+
+/// Zustand der Termin-Eingabemaske. Die Termin- und die Kursseite nutzen
+/// dieselbe Maske (siehe [`TerminDialog`]).
+#[derive(Clone, Copy)]
+pub struct TerminMaske {
+    offen: RwSignal<bool>,
+    /// Gesetzt, wenn ein bestehender Termin geändert wird
+    bearbeite: RwSignal<Option<Uuid>>,
+    kurs_id: RwSignal<String>,
+    beginn: RwSignal<String>,
+    ende: RwSignal<String>,
+    adresse_id: RwSignal<String>,
+    max_teilnehmer: RwSignal<String>,
+    ausgewaehlt: RwSignal<Vec<Uuid>>,
+    suche: RwSignal<String>,
+    meldung: RwSignal<Option<String>>,
+    /// Erfolgsmeldung, nachdem die Maske für einen weiteren Termin neu geladen wurde
+    hinweis: RwSignal<Option<String>>,
+    /// Nach dem Speichern gleich den nächsten Termin zum gleichen Kurs erfassen
+    weiterer: RwSignal<bool>,
+}
+
+impl Default for TerminMaske {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl TerminMaske {
+    pub fn new() -> Self {
+        Self {
+            offen: RwSignal::new(false),
+            bearbeite: RwSignal::new(None),
+            kurs_id: RwSignal::new(String::new()),
+            beginn: RwSignal::new(String::new()),
+            ende: RwSignal::new(String::new()),
+            adresse_id: RwSignal::new(String::new()),
+            max_teilnehmer: RwSignal::new(STANDARD_MAX_TEILNEHMER.to_string()),
+            ausgewaehlt: RwSignal::new(Vec::new()),
+            suche: RwSignal::new(String::new()),
+            meldung: RwSignal::new(None),
+            hinweis: RwSignal::new(None),
+            weiterer: RwSignal::new(false),
+        }
+    }
+
+    /// Leere Maske für einen neuen Termin, optional mit vorgewähltem Kurs.
+    pub fn neu(&self, kurs: Option<Uuid>) {
+        self.vorlage(kurs, None, STANDARD_MAX_TEILNEHMER.to_string());
+    }
+
+    /// Neuer Termin zum gleichen Kurs wie `t`; Adresse und Plätze werden übernommen.
+    pub fn gleicher_kurs(&self, t: &Termin) {
+        self.vorlage(Some(t.kurs_id), t.adresse.as_ref().map(|a| a.id), t.max_teilnehmer.to_string());
+    }
+
+    pub fn bearbeiten(&self, t: Termin) {
+        self.bearbeite.set(Some(t.id));
+        self.kurs_id.set(t.kurs_id.to_string());
+        self.beginn.set(t.beginn.format(DATETIME_LOCAL).to_string());
+        self.ende.set(t.ende.format(DATETIME_LOCAL).to_string());
+        self.adresse_id.set(t.adresse.map(|a| a.id.to_string()).unwrap_or_default());
+        self.max_teilnehmer.set(t.max_teilnehmer.to_string());
+        self.ausgewaehlt.set(t.mitarbeiter.iter().map(|m| m.id).collect());
+        self.zuruecksetzen();
+    }
+
+    fn vorlage(&self, kurs: Option<Uuid>, adresse: Option<Uuid>, max_teilnehmer: String) {
+        self.bearbeite.set(None);
+        self.kurs_id.set(kurs.map(|k| k.to_string()).unwrap_or_default());
+        self.beginn.set(String::new());
+        self.ende.set(String::new());
+        self.adresse_id.set(adresse.map(|a| a.to_string()).unwrap_or_default());
+        self.max_teilnehmer.set(max_teilnehmer);
+        self.ausgewaehlt.set(Vec::new());
+        self.zuruecksetzen();
+    }
+
+    fn zuruecksetzen(&self) {
+        self.suche.set(String::new());
+        self.meldung.set(None);
+        self.hinweis.set(None);
+        self.offen.set(true);
+    }
+
+    /// Nach dem Speichern: Maske neu laden für den nächsten Termin zum gleichen
+    /// Kurs. Kurs, Adresse und Plätze bleiben, Datum und Teilnehmende werden geleert.
+    fn naechster_termin(&self) {
+        let kurs = self.kurs_id.get_untracked().parse().ok();
+        let adresse = self.adresse_id.get_untracked().parse().ok();
+        self.vorlage(kurs, adresse, self.max_teilnehmer.get_untracked());
+        self.hinweis.set(Some("Termin gespeichert – jetzt den nächsten Termin zum gleichen Kurs erfassen.".into()));
+    }
+}
 
 #[component]
 pub fn TerminSeite() -> impl IntoView {
@@ -25,79 +122,12 @@ pub fn TerminSeite() -> impl IntoView {
         move || (speichern.version().get(), loeschen.version().get()),
         |_| termine_laden(),
     );
-    // Auswahllisten für Kurs (N:1) und Teilnehmende (M:N)
-    let kurse = Resource::new(|| (), |_| kurse_laden());
-    let mitarbeiter = Resource::new(|| (), |_| mitarbeiter_laden());
 
-    let dialog_offen = RwSignal::new(false);
-    let bearbeite = RwSignal::new(None::<Uuid>);
-    let kurs_id = RwSignal::new(String::new());
-    let beginn = RwSignal::new(String::new());
-    let ende = RwSignal::new(String::new());
-    let ort = RwSignal::new(String::new());
-    let max_teilnehmer = RwSignal::new(String::from("20"));
-    let ausgewaehlt = RwSignal::new(Vec::<Uuid>::new());
-    let suche = RwSignal::new(String::new());
-    let formular_meldung = RwSignal::new(None::<String>);
+    let maske = TerminMaske::new();
     let listen_meldung = RwSignal::new(None::<String>);
-
-    let neu = move || {
-        bearbeite.set(None);
-        kurs_id.set(String::new());
-        beginn.set(String::new());
-        ende.set(String::new());
-        ort.set(String::new());
-        max_teilnehmer.set(String::from("20"));
-        ausgewaehlt.set(Vec::new());
-        suche.set(String::new());
-        formular_meldung.set(None);
-        dialog_offen.set(true);
-    };
-    ergebnis_beobachten(speichern.value(), formular_meldung, move || dialog_offen.set(false));
     ergebnis_beobachten(loeschen.value(), listen_meldung, || {});
 
-    let absenden = move |ev: leptos::ev::SubmitEvent| {
-        ev.prevent_default();
-        let Ok(kurs) = kurs_id.get_untracked().parse::<Uuid>() else {
-            formular_meldung.set(Some("Bitte einen Kurs auswählen.".into()));
-            return;
-        };
-        let Some(max) = max_teilnehmer.get_untracked().trim().parse::<i32>().ok().filter(|m| *m >= 1) else {
-            formular_meldung.set(Some("Die maximale Teilnehmerzahl muss eine ganze Zahl ab 1 sein.".into()));
-            return;
-        };
-        speichern.dispatch(TerminSpeichern {
-            id: bearbeite.get_untracked(),
-            eingabe: TerminEingabe {
-                kurs_id: kurs,
-                beginn: beginn.get_untracked(),
-                ende: ende.get_untracked(),
-                ort: ort.get_untracked(),
-                max_teilnehmer: max,
-                mitarbeiter_ids: ausgewaehlt.get_untracked(),
-            },
-        });
-    };
-
-    // Gültige Obergrenze aus dem Formular, `None` solange das Feld ungültig ist
-    let max_plaetze = Signal::derive(move || {
-        max_teilnehmer.with(|m| m.trim().parse::<usize>().ok().filter(|m| *m >= 1))
-    });
-
-    let ueberbucht = move || max_plaetze.get().is_some_and(|max| ausgewaehlt.with(Vec::len) > max);
-
-    let termin_bearbeiten = move |t: Termin| {
-        bearbeite.set(Some(t.id));
-        kurs_id.set(t.kurs_id.to_string());
-        beginn.set(t.beginn.format(DATETIME_LOCAL).to_string());
-        ende.set(t.ende.format(DATETIME_LOCAL).to_string());
-        ort.set(t.ort);
-        max_teilnehmer.set(t.max_teilnehmer.to_string());
-        ausgewaehlt.set(t.mitarbeiter.iter().map(|m| m.id).collect());
-        suche.set(String::new());
-        formular_meldung.set(None);
-        dialog_offen.set(true);
-    };
+    let termin_bearbeiten = move |t: Termin| maske.bearbeiten(t);
 
     // Termin, dessen Teilnehmende rechts angezeigt werden; Daten immer aus der aktuellen Liste
     let panel_termin = RwSignal::new(None::<Uuid>);
@@ -106,14 +136,10 @@ pub fn TerminSeite() -> impl IntoView {
         termine.get()?.ok()?.into_iter().find(|t| t.id == id)
     };
 
-    let dialog_titel = Signal::derive(move || {
-        if bearbeite.get().is_some() { "Termin bearbeiten" } else { "Neuer Termin" }.to_string()
-    });
-
     view! {
         <Seitenkopf titel="Termine" untertitel="Kursdurchführungen und ihre Teilnehmenden">
             <Show when=move || darf_anlegen.get()>
-                <button class="btn btn-primary" on:click=move |_| neu()>
+                <button class="btn btn-primary" on:click=move |_| maske.neu(None)>
                     <Icon icon=icondata::LuPlus/>
                     "Neuer Termin"
                 </button>
@@ -137,7 +163,7 @@ pub fn TerminSeite() -> impl IntoView {
                                             <tr>
                                                 <th>"Kurs"</th>
                                                 <th class="hidden sm:table-cell">"Datum"</th>
-                                                <th class="hidden lg:table-cell">"Ort"</th>
+                                                <th class="hidden lg:table-cell">"Adresse"</th>
                                                 <th>
                                                     <span class="sm:hidden">"Plätze"</span>
                                                     <span class="hidden sm:inline">"Teilnehmende"</span>
@@ -150,6 +176,7 @@ pub fn TerminSeite() -> impl IntoView {
                                                 let id = t.id;
                                                 let fuer_doppelklick = t.clone();
                                                 let fuer_button = t.clone();
+                                                let fuer_gleichen_kurs = t.clone();
                                                 let datum = if t.beginn.date() == t.ende.date() {
                                                     t.beginn.format(ANZEIGE_DATUM).to_string()
                                                 } else {
@@ -158,6 +185,8 @@ pub fn TerminSeite() -> impl IntoView {
                                                 let zeit = format!("{} – {}", t.beginn.format(ANZEIGE_ZEIT), t.ende.format(ANZEIGE_ZEIT));
                                                 let datum_kurz = datum.clone();
                                                 let zeit_kurz = zeit.clone();
+                                                let adresse = t.adresse.as_ref().map(|a| a.anzeige()).unwrap_or_default();
+                                                let adresse_kurz = adresse.clone();
                                                 let belegt = t.mitarbeiter.len();
                                                 let voll = belegt >= t.max_teilnehmer as usize;
                                                 let plaetze = format!("{belegt} / {}", t.max_teilnehmer);
@@ -172,8 +201,8 @@ pub fn TerminSeite() -> impl IntoView {
                                                         }>
                                                         <td>
                                                             <div class="font-medium">{t.kurs_titel}</div>
-                                                            // Auf kleinen Bildschirmen steht der Ort unter dem Kurs
-                                                            <div class="text-xs text-base-content/60 lg:hidden">{t.ort.clone()}</div>
+                                                            // Auf kleinen Bildschirmen steht die Adresse unter dem Kurs
+                                                            <div class="text-xs text-base-content/60 lg:hidden">{adresse_kurz}</div>
                                                             // Auf dem Smartphone auch Datum und Zeit
                                                             <div class="text-xs text-base-content/60 sm:hidden">{format!("{datum_kurz} · {zeit_kurz}")}</div>
                                                         </td>
@@ -181,7 +210,7 @@ pub fn TerminSeite() -> impl IntoView {
                                                             <div>{datum}</div>
                                                             <div class="text-xs text-base-content/60">{zeit}</div>
                                                         </td>
-                                                        <td class="hidden lg:table-cell">{t.ort}</td>
+                                                        <td class="hidden lg:table-cell">{adresse}</td>
                                                         <td>
                                                             <button type="button"
                                                                 class="btn btn-sm gap-1.5 whitespace-nowrap max-sm:px-2"
@@ -201,6 +230,18 @@ pub fn TerminSeite() -> impl IntoView {
                                                         </td>
                                                         <td>
                                                             <div class="flex justify-end gap-1">
+                                                                <Show when=move || darf_anlegen.get()>
+                                                                    <button class="btn btn-ghost btn-sm btn-square"
+                                                                        title="Neuer Termin zum gleichen Kurs"
+                                                                        aria-label="Neuer Termin zum gleichen Kurs"
+                                                                        on:dblclick=|ev| ev.stop_propagation()
+                                                                        on:click={
+                                                                            let t = fuer_gleichen_kurs.clone();
+                                                                            move |_| maske.gleicher_kurs(&t)
+                                                                        }>
+                                                                        <Icon icon=icondata::LuCopyPlus/>
+                                                                    </button>
+                                                                </Show>
                                                                 <PdfKnopf termin_id=id/>
                                                                 <ZeilenAktionen
                                                                     bearbeiten=move || termin_bearbeiten(fuer_button.clone())
@@ -245,9 +286,77 @@ pub fn TerminSeite() -> impl IntoView {
             </Transition>
         </div>
 
-        <Dialog offen=dialog_offen titel=dialog_titel>
+        <TerminDialog maske speichern/>
+    }
+}
+
+/// Eingabemaske für einen Termin. Mit „Speichern & nächster Termin“ wird die
+/// Maske nach dem Speichern neu geladen, um gleich den nächsten Termin zum
+/// gleichen Kurs zu erfassen.
+#[component]
+pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>) -> impl IntoView {
+    let darf_anlegen = use_sitzung().recht(Bereich::Termine, Aktion::Anlegen);
+    // Auswahllisten für Kurs (N:1), Adresse (N:1) und Teilnehmende (M:N)
+    let kurse = Resource::new(|| (), |_| kurse_laden());
+    let adressen = Resource::new(|| (), |_| adressen_laden());
+    let mitarbeiter = Resource::new(|| (), |_| mitarbeiter_laden());
+
+    let TerminMaske { offen, bearbeite, kurs_id, beginn, ende, adresse_id, max_teilnehmer, ausgewaehlt, suche, meldung, hinweis, weiterer } = maske;
+
+    ergebnis_beobachten(speichern.value(), meldung, move || {
+        if weiterer.get_untracked() {
+            maske.naechster_termin();
+        } else {
+            offen.set(false);
+        }
+    });
+
+    let absenden = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        hinweis.set(None);
+        let Ok(kurs) = kurs_id.get_untracked().parse::<Uuid>() else {
+            meldung.set(Some("Bitte einen Kurs auswählen.".into()));
+            return;
+        };
+        let Some(max) = max_teilnehmer.get_untracked().trim().parse::<i32>().ok().filter(|m| *m >= 1) else {
+            meldung.set(Some("Die maximale Teilnehmerzahl muss eine ganze Zahl ab 1 sein.".into()));
+            return;
+        };
+        speichern.dispatch(TerminSpeichern {
+            id: bearbeite.get_untracked(),
+            eingabe: TerminEingabe {
+                kurs_id: kurs,
+                beginn: beginn.get_untracked(),
+                ende: ende.get_untracked(),
+                adresse_id: adresse_id.get_untracked().parse().ok(),
+                max_teilnehmer: max,
+                mitarbeiter_ids: ausgewaehlt.get_untracked(),
+            },
+        });
+    };
+
+    // Gültige Obergrenze aus dem Formular, `None` solange das Feld ungültig ist
+    let max_plaetze = Signal::derive(move || {
+        max_teilnehmer.with(|m| m.trim().parse::<usize>().ok().filter(|m| *m >= 1))
+    });
+
+    let ueberbucht = move || max_plaetze.get().is_some_and(|max| ausgewaehlt.with(Vec::len) > max);
+
+    let dialog_titel = Signal::derive(move || {
+        if bearbeite.get().is_some() { "Termin bearbeiten" } else { "Neuer Termin" }.to_string()
+    });
+    let beschaeftigt = speichern.pending();
+
+    view! {
+        <Dialog offen titel=dialog_titel>
             <form on:submit=absenden>
-                <Fehlermeldung meldung=formular_meldung/>
+                <Show when=move || hinweis.with(Option::is_some)>
+                    <div role="status" class="alert alert-success alert-soft mb-4">
+                        <Icon icon=icondata::LuCircleCheck/>
+                        <span>{move || hinweis.get().unwrap_or_default()}</span>
+                    </div>
+                </Show>
+                <Fehlermeldung meldung/>
                 <fieldset class="fieldset">
                     <legend class="fieldset-legend">"Kurs"</legend>
                     <select class="select w-full" required
@@ -277,9 +386,23 @@ pub fn TerminSeite() -> impl IntoView {
                     </fieldset>
                 </div>
                 <div class="grid gap-x-4 sm:grid-cols-[1fr_10rem]">
-                    <fieldset class="fieldset">
-                        <legend class="fieldset-legend">"Ort"</legend>
-                        <input class="input w-full" bind:value=ort/>
+                    <fieldset class="fieldset min-w-0">
+                        <legend class="fieldset-legend">"Adresse"</legend>
+                        <select class="select w-full"
+                            on:change:target=move |ev| adresse_id.set(ev.target().value())>
+                            <option value="" selected=move || adresse_id.get().is_empty()>"Keine Adresse"</option>
+                            <Suspense>
+                                {move || Suspend::new(async move {
+                                    adressen.await.unwrap_or_default().into_iter().map(|a| {
+                                        let id = a.id.to_string();
+                                        let wert = id.clone();
+                                        view! {
+                                            <option value=id selected=move || adresse_id.get() == wert>{a.anzeige()}</option>
+                                        }
+                                    }).collect_view()
+                                })}
+                            </Suspense>
+                        </select>
                     </fieldset>
                     <fieldset class="fieldset">
                         <legend class="fieldset-legend">"Max. Teilnehmende"</legend>
@@ -306,7 +429,31 @@ pub fn TerminSeite() -> impl IntoView {
                         })}
                     </Suspense>
                 </fieldset>
-                <DialogAktionen offen=dialog_offen beschaeftigt=speichern.pending()/>
+
+                // Beide Knöpfe senden das Formular ab (inkl. Pflichtfeld-Prüfung);
+                // der Klick merkt sich vorher, was danach passieren soll.
+                <div class="modal-action flex-wrap">
+                    <button type="button" class="btn btn-ghost" on:click=move |_| offen.set(false)>
+                        <Icon icon=icondata::LuX/>
+                        "Abbrechen"
+                    </button>
+                    <Show when=move || darf_anlegen.get()>
+                        <button type="submit" class="btn btn-primary btn-soft"
+                            title="Speichern und gleich einen weiteren Termin zum gleichen Kurs erfassen"
+                            disabled=move || beschaeftigt.get()
+                            on:click=move |_| weiterer.set(true)>
+                            <Icon icon=icondata::LuCalendarPlus/>
+                            "Speichern & nächster Termin"
+                        </button>
+                    </Show>
+                    <button type="submit" class="btn btn-primary" disabled=move || beschaeftigt.get()
+                        on:click=move |_| weiterer.set(false)>
+                        <Show when=move || beschaeftigt.get() fallback=|| view! { <Icon icon=icondata::LuSave/> }>
+                            <span class="loading loading-spinner loading-xs"></span>
+                        </Show>
+                        "Speichern"
+                    </button>
+                </div>
             </form>
         </Dialog>
     }

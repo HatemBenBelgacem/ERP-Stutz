@@ -23,7 +23,7 @@ const NAVIGATION: [(Option<(&str, icondata::Icon)>, &[Ziel]); 2] = [
     (
         Some(("Personal", icondata::LuBriefcase)),
         &[
-            // Termine und Kurse als Reiter
+            // Termine, Kurse und Geschäftsbereiche als Reiter
             Ziel { text: "Weiterbildung", href: "/personal/weiterbildung", icon: icondata::LuGraduationCap, bereiche: &Bereich::WEITERBILDUNG },
             Ziel { text: "Mitarbeiter", href: "/personal/mitarbeiter", icon: icondata::LuUsers, bereiche: &[Bereich::Mitarbeiter] },
         ],
@@ -31,6 +31,7 @@ const NAVIGATION: [(Option<(&str, icondata::Icon)>, &[Ziel]); 2] = [
     (
         None,
         &[
+            Ziel { text: "Adressen", href: "/adressen", icon: icondata::LuMapPin, bereiche: &[Bereich::Adressen] },
             Ziel { text: "Einkauf", href: "/einkauf", icon: icondata::LuShoppingCart, bereiche: &[Bereich::Einkauf] },
             Ziel { text: "Lager", href: "/lager", icon: icondata::LuWarehouse, bereiche: &[Bereich::Lager] },
             Ziel { text: "Projekte", href: "/projekte", icon: icondata::LuConstruction, bereiche: &[Bereich::Projekte] },

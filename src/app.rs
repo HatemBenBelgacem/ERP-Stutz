@@ -4,10 +4,12 @@ use leptos_router::StaticSegment;
 use leptos_router::components::{Outlet, ParentRoute, ProtectedParentRoute, Redirect, Route, Router, Routes};
 
 use crate::backend::auth::{Abmelden, Anmelden, Registrieren, aktueller_benutzer_laden};
+use crate::components::adresse::AdresseSeite;
 use crate::components::anmeldung::{AnmeldeSeite, RegistrierSeite};
 use crate::components::benutzer::BenutzerSeite;
 use crate::components::einstellungen::{EinstellungenSeite, EinstellungenStart};
 use crate::components::gemeinsam::Leer;
+use crate::components::geschaeftsbereich::GeschaeftsbereichSeite;
 use crate::components::kein_zugriff::KeinZugriff;
 use crate::components::kurs::KursSeite;
 use crate::components::layout::Layout;
@@ -148,12 +150,20 @@ pub fn App() -> impl IntoView {
                                 path=StaticSegment("kurse")
                                 view=|| view! { <Bereichsschutz bereich=Bereich::Kurse><KursSeite/></Bereichsschutz> }
                             />
+                            <Route
+                                path=StaticSegment("geschaeftsbereiche")
+                                view=|| view! { <Bereichsschutz bereich=Bereich::Geschaeftsbereiche><GeschaeftsbereichSeite/></Bereichsschutz> }
+                            />
                         </ParentRoute>
                         <Route
                             path=StaticSegment("mitarbeiter")
                             view=|| view! { <Bereichsschutz bereich=Bereich::Mitarbeiter><MitarbeiterSeite/></Bereichsschutz> }
                         />
                     </ParentRoute>
+                    <Route
+                        path=StaticSegment("adressen")
+                        view=|| view! { <Bereichsschutz bereich=Bereich::Adressen><AdresseSeite/></Bereichsschutz> }
+                    />
                     <Route
                         path=StaticSegment("einkauf")
                         view=|| view! { <Bereichsschutz bereich=Bereich::Einkauf><ModulSeite bereich=Bereich::Einkauf/></Bereichsschutz> }
