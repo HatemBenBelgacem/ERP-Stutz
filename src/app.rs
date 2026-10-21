@@ -150,10 +150,6 @@ pub fn App() -> impl IntoView {
                                 path=StaticSegment("kurse")
                                 view=|| view! { <Bereichsschutz bereich=Bereich::Kurse><KursSeite/></Bereichsschutz> }
                             />
-                            <Route
-                                path=StaticSegment("geschaeftsbereiche")
-                                view=|| view! { <Bereichsschutz bereich=Bereich::Geschaeftsbereiche><GeschaeftsbereichSeite/></Bereichsschutz> }
-                            />
                         </ParentRoute>
                         <Route
                             path=StaticSegment("mitarbeiter")
@@ -193,6 +189,10 @@ pub fn App() -> impl IntoView {
                         <Route
                             path=StaticSegment("rollen")
                             view=|| view! { <Bereichsschutz bereich=Bereich::Rollen><RollenSeite/></Bereichsschutz> }
+                        />
+                        <Route
+                            path=StaticSegment("geschaeftsbereiche")
+                            view=|| view! { <Bereichsschutz bereich=Bereich::Geschaeftsbereiche><GeschaeftsbereichSeite/></Bereichsschutz> }
                         />
                     </ParentRoute>
                     <Route path=StaticSegment("kein-zugriff") view=KeinZugriff/>

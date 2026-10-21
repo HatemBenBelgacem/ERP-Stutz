@@ -164,13 +164,12 @@ pub enum Bereich {
 
 impl Bereich {
     /// Bereiche der Gruppe „Personal“
-    pub const PERSONAL: [Bereich; 4] = [Bereich::Termine, Bereich::Kurse, Bereich::Geschaeftsbereiche, Bereich::Mitarbeiter];
+    pub const PERSONAL: [Bereich; 3] = [Bereich::Termine, Bereich::Kurse, Bereich::Mitarbeiter];
     /// Reiter unter „Personal › Weiterbildung“
-    pub const WEITERBILDUNG: [Bereich; 3] = [Bereich::Termine, Bereich::Kurse, Bereich::Geschaeftsbereiche];
-    pub const HAUPTBEREICHE: [Bereich; 10] = [
+    pub const WEITERBILDUNG: [Bereich; 2] = [Bereich::Termine, Bereich::Kurse];
+    pub const HAUPTBEREICHE: [Bereich; 9] = [
         Bereich::Termine,
         Bereich::Kurse,
-        Bereich::Geschaeftsbereiche,
         Bereich::Mitarbeiter,
         Bereich::Adressen,
         Bereich::Einkauf,
@@ -179,11 +178,10 @@ impl Bereich {
         Bereich::Werkhof,
         Bereich::Finanzen,
     ];
-    pub const EINSTELLUNGEN: [Bereich; 2] = [Bereich::Benutzer, Bereich::Rollen];
+    pub const EINSTELLUNGEN: [Bereich; 3] = [Bereich::Benutzer, Bereich::Rollen, Bereich::Geschaeftsbereiche];
     pub const ALLE: [Bereich; 12] = [
         Bereich::Termine,
         Bereich::Kurse,
-        Bereich::Geschaeftsbereiche,
         Bereich::Mitarbeiter,
         Bereich::Adressen,
         Bereich::Einkauf,
@@ -193,6 +191,7 @@ impl Bereich {
         Bereich::Finanzen,
         Bereich::Benutzer,
         Bereich::Rollen,
+        Bereich::Geschaeftsbereiche,
     ];
 
     /// Wert in der Datenbank
@@ -234,7 +233,7 @@ impl Bereich {
         match self {
             Bereich::Termine => "/personal/weiterbildung/termine",
             Bereich::Kurse => "/personal/weiterbildung/kurse",
-            Bereich::Geschaeftsbereiche => "/personal/weiterbildung/geschaeftsbereiche",
+            Bereich::Geschaeftsbereiche => "/einstellungen/geschaeftsbereiche",
             Bereich::Mitarbeiter => "/personal/mitarbeiter",
             Bereich::Adressen => "/adressen",
             Bereich::Einkauf => "/einkauf",
