@@ -71,9 +71,16 @@ struct TerminDaten {
 }
 
 async fn termin_laden(id: Uuid) -> Result<Option<TerminDaten>, sqlx::Error> {
+    // Adresse einzeilig, z. B. „Werkhof, Hauptstrasse 1, 8000 Zürich“
     let kopf: Option<(String, String, i32, NaiveDateTime, NaiveDateTime, String, i32)> = sqlx::query_as(
-        "SELECT k.titel, k.beschreibung, k.dauer_stunden, t.beginn, t.ende, t.ort, t.max_teilnehmer
-         FROM termin t JOIN kurs k ON k.id = t.kurs_id WHERE t.id = $1",
+        "SELECT k.titel, k.beschreibung, k.dauer_stunden, t.beginn, t.ende,
+                COALESCE(concat_ws(', ', NULLIF(a.bezeichnung, ''), NULLIF(a.strasse, ''),
+                                   NULLIF(trim(a.plz || ' ' || a.ort), '')), ''),
+                t.max_teilnehmer
+         FROM termin t
+         JOIN kurs k ON k.id = t.kurs_id
+         LEFT JOIN adresse a ON a.id = t.adresse_id
+         WHERE t.id = $1",
     )
     .bind(id)
     .fetch_optional(pool())
