@@ -36,12 +36,16 @@ pub struct Adresse {
 impl Adresse {
     /// Einzeilige Anzeige, z. B. „Werkhof, Hauptstrasse 1, 8000 Zürich“.
     pub fn anzeige(&self) -> String {
+        self.zeilen().join(", ")
+    }
+
+    /// Bezeichnung, Strasse und „PLZ Ort“ als eigene Zeilen (leere entfallen).
+    pub fn zeilen(&self) -> Vec<String> {
         let plz_ort = format!("{} {}", self.plz, self.ort).trim().to_string();
-        [self.bezeichnung.as_str(), self.strasse.as_str(), plz_ort.as_str()]
+        [self.bezeichnung.clone(), self.strasse.clone(), plz_ort]
             .into_iter()
             .filter(|t| !t.is_empty())
-            .collect::<Vec<_>>()
-            .join(", ")
+            .collect()
     }
 }
 

@@ -163,7 +163,7 @@ pub fn TerminSeite() -> impl IntoView {
                                             <tr>
                                                 <th>"Kurs"</th>
                                                 <th class="hidden sm:table-cell">"Datum"</th>
-                                                <th class="hidden lg:table-cell">"Adresse"</th>
+                                                <th class="hidden lg:table-cell">"Veranstaltungsort"</th>
                                                 <th>
                                                     <span class="sm:hidden">"Plätze"</span>
                                                     <span class="hidden sm:inline">"Teilnehmende"</span>
@@ -185,8 +185,8 @@ pub fn TerminSeite() -> impl IntoView {
                                                 let zeit = format!("{} – {}", t.beginn.format(ANZEIGE_ZEIT), t.ende.format(ANZEIGE_ZEIT));
                                                 let datum_kurz = datum.clone();
                                                 let zeit_kurz = zeit.clone();
-                                                let adresse = t.adresse.as_ref().map(|a| a.anzeige()).unwrap_or_default();
-                                                let adresse_kurz = adresse.clone();
+                                                let adresse_kurz = t.adresse.as_ref().map(|a| a.anzeige()).unwrap_or_default();
+                                                let adresse_zeilen = t.adresse.as_ref().map(|a| a.zeilen()).unwrap_or_default();
                                                 let belegt = t.mitarbeiter.len();
                                                 let voll = belegt >= t.max_teilnehmer as usize;
                                                 let plaetze = format!("{belegt} / {}", t.max_teilnehmer);
@@ -201,7 +201,7 @@ pub fn TerminSeite() -> impl IntoView {
                                                         }>
                                                         <td>
                                                             <div class="font-medium">{t.kurs_titel}</div>
-                                                            // Auf kleinen Bildschirmen steht die Adresse unter dem Kurs
+                                                            // Auf kleinen Bildschirmen steht der Veranstaltungsort unter dem Kurs
                                                             <div class="text-xs text-base-content/60 lg:hidden">{adresse_kurz}</div>
                                                             // Auf dem Smartphone auch Datum und Zeit
                                                             <div class="text-xs text-base-content/60 sm:hidden">{format!("{datum_kurz} · {zeit_kurz}")}</div>
@@ -210,7 +210,12 @@ pub fn TerminSeite() -> impl IntoView {
                                                             <div>{datum}</div>
                                                             <div class="text-xs text-base-content/60">{zeit}</div>
                                                         </td>
-                                                        <td class="hidden lg:table-cell">{adresse}</td>
+                                                        // Bezeichnung, Strasse und PLZ/Ort je auf einer Zeile
+                                                        <td class="hidden lg:table-cell">
+                                                            {adresse_zeilen.into_iter().enumerate().map(|(i, zeile)| view! {
+                                                                <div class:font-medium=i == 0 class=("text-xs", i > 0) class=("text-base-content/60", i > 0)>{zeile}</div>
+                                                            }).collect_view()}
+                                                        </td>
                                                         <td>
                                                             <button type="button"
                                                                 class="btn btn-sm gap-1.5 whitespace-nowrap max-sm:px-2"
@@ -387,10 +392,10 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
                 </div>
                 <div class="grid gap-x-4 sm:grid-cols-[1fr_10rem]">
                     <fieldset class="fieldset min-w-0">
-                        <legend class="fieldset-legend">"Adresse"</legend>
+                        <legend class="fieldset-legend">"Veranstaltungsort"</legend>
                         <select class="select w-full"
                             on:change:target=move |ev| adresse_id.set(ev.target().value())>
-                            <option value="" selected=move || adresse_id.get().is_empty()>"Keine Adresse"</option>
+                            <option value="" selected=move || adresse_id.get().is_empty()>"Kein Veranstaltungsort"</option>
                             <Suspense>
                                 {move || Suspend::new(async move {
                                     adressen.await.unwrap_or_default().into_iter().map(|a| {
