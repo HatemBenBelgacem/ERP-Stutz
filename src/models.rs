@@ -75,7 +75,80 @@ pub struct Termin {
     pub ende: NaiveDateTime,
     pub adresse: Option<Adresse>,
     pub max_teilnehmer: i32,
+    pub status: TerminStatus,
     pub mitarbeiter: Vec<Mitarbeiter>,
+}
+
+/// Bearbeitungsstand eines Termins, in der Reihenfolge des Ablaufs.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TerminStatus {
+    #[default]
+    Neu,
+    TeamchefsInformiert,
+    Laufend,
+    Beendet,
+}
+
+impl TerminStatus {
+    pub const ALLE: [TerminStatus; 4] =
+        [TerminStatus::Neu, TerminStatus::TeamchefsInformiert, TerminStatus::Laufend, TerminStatus::Beendet];
+
+    /// Wert in der Datenbank (Typ `termin_status`)
+    pub fn schluessel(self) -> &'static str {
+        match self {
+            TerminStatus::Neu => "neu",
+            TerminStatus::TeamchefsInformiert => "teamchefs_informiert",
+            TerminStatus::Laufend => "laufend",
+            TerminStatus::Beendet => "beendet",
+        }
+    }
+
+    pub fn aus_schluessel(schluessel: &str) -> Option<TerminStatus> {
+        TerminStatus::ALLE.into_iter().find(|s| s.schluessel() == schluessel)
+    }
+
+    pub fn titel(self) -> &'static str {
+        match self {
+            TerminStatus::Neu => "Neu",
+            TerminStatus::TeamchefsInformiert => "Teamchefs informiert",
+            TerminStatus::Laufend => "Laufend",
+            TerminStatus::Beendet => "Beendet",
+        }
+    }
+
+    /// Farbe des Badges (Klassen ausgeschrieben, damit Tailwind sie findet)
+    pub fn badge_klasse(self) -> &'static str {
+        match self {
+            TerminStatus::Neu => "badge-success",
+            TerminStatus::TeamchefsInformiert => "badge-info",
+            TerminStatus::Laufend => "badge-warning",
+            TerminStatus::Beendet => "badge-error",
+        }
+    }
+
+    /// Text- und Hintergrundfarbe für die Timeline
+    pub fn text_klasse(self) -> &'static str {
+        match self {
+            TerminStatus::Neu => "text-success",
+            TerminStatus::TeamchefsInformiert => "text-info",
+            TerminStatus::Laufend => "text-warning",
+            TerminStatus::Beendet => "text-error",
+        }
+    }
+
+    pub fn bg_klasse(self) -> &'static str {
+        match self {
+            TerminStatus::Neu => "bg-success",
+            TerminStatus::TeamchefsInformiert => "bg-info",
+            TerminStatus::Laufend => "bg-warning",
+            TerminStatus::Beendet => "bg-error",
+        }
+    }
+
+    /// Position im Ablauf (0 = Neu)
+    pub fn schritt(self) -> usize {
+        TerminStatus::ALLE.iter().position(|s| *s == self).unwrap_or_default()
+    }
 }
 
 /// Eingabedaten aus dem Termin-Formular. Datumswerte kommen im Format
@@ -87,6 +160,7 @@ pub struct TerminEingabe {
     pub ende: String,
     pub adresse_id: Option<Uuid>,
     pub max_teilnehmer: i32,
+    pub status: TerminStatus,
     pub mitarbeiter_ids: Vec<Uuid>,
 }
 

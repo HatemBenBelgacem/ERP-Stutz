@@ -281,11 +281,11 @@ pub async fn termine_laden() -> Result<Vec<Termin>, ServerFnError> {
     use crate::backend::db::{fehler, pool};
 
     type Zeile = (
-        Uuid, Uuid, String, NaiveDateTime, NaiveDateTime, i32,
+        Uuid, Uuid, String, NaiveDateTime, NaiveDateTime, i32, String,
         Option<Uuid>, Option<String>, Option<String>, Option<String>, Option<String>,
     );
     let zeilen: Vec<Zeile> = sqlx::query_as(
-        "SELECT t.id, t.kurs_id, k.titel, t.beginn, t.ende, t.max_teilnehmer,
+        "SELECT t.id, t.kurs_id, k.titel, t.beginn, t.ende, t.max_teilnehmer, t.status::text,
                 a.id, a.bezeichnung, a.strasse, a.plz, a.ort
          FROM termin t
          JOIN kurs k ON k.id = t.kurs_id
@@ -318,7 +318,7 @@ pub async fn termine_laden() -> Result<Vec<Termin>, ServerFnError> {
 
     Ok(zeilen
         .into_iter()
-        .map(|(id, kurs_id, kurs_titel, beginn, ende, max_teilnehmer, adresse_id, bezeichnung, strasse, plz, ort)| Termin {
+        .map(|(id, kurs_id, kurs_titel, beginn, ende, max_teilnehmer, status, adresse_id, bezeichnung, strasse, plz, ort)| Termin {
             mitarbeiter: pro_termin.remove(&id).unwrap_or_default(),
             adresse: adresse_id.map(|adresse_id| Adresse {
                 id: adresse_id,
@@ -333,6 +333,7 @@ pub async fn termine_laden() -> Result<Vec<Termin>, ServerFnError> {
             beginn,
             ende,
             max_teilnehmer,
+            status: crate::models::TerminStatus::aus_schluessel(&status).unwrap_or_default(),
         })
         .collect())
 }
@@ -363,7 +364,8 @@ pub async fn termin_speichern(id: Option<Uuid>, eingabe: TerminEingabe) -> Resul
     let termin_id: Uuid = match id {
         Some(id) => {
             sqlx::query(
-                "UPDATE termin SET kurs_id = $2, beginn = $3, ende = $4, adresse_id = $5, max_teilnehmer = $6
+                "UPDATE termin SET kurs_id = $2, beginn = $3, ende = $4, adresse_id = $5, max_teilnehmer = $6,
+                                   status = $7::termin_status
                  WHERE id = $1",
             )
                 .bind(id)
@@ -372,6 +374,7 @@ pub async fn termin_speichern(id: Option<Uuid>, eingabe: TerminEingabe) -> Resul
                 .bind(ende)
                 .bind(eingabe.adresse_id)
                 .bind(eingabe.max_teilnehmer)
+                .bind(eingabe.status.schluessel())
                 .execute(&mut *tx)
                 .await
                 .map_err(fehler)?;
@@ -383,13 +386,15 @@ pub async fn termin_speichern(id: Option<Uuid>, eingabe: TerminEingabe) -> Resul
             id
         }
         None => sqlx::query_scalar(
-            "INSERT INTO termin (kurs_id, beginn, ende, adresse_id, max_teilnehmer) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+            "INSERT INTO termin (kurs_id, beginn, ende, adresse_id, max_teilnehmer, status)
+             VALUES ($1, $2, $3, $4, $5, $6::termin_status) RETURNING id",
         )
         .bind(eingabe.kurs_id)
         .bind(beginn)
         .bind(ende)
         .bind(eingabe.adresse_id)
         .bind(eingabe.max_teilnehmer)
+        .bind(eingabe.status.schluessel())
         .fetch_one(&mut *tx)
         .await
         .map_err(fehler)?,

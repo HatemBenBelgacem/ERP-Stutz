@@ -10,7 +10,7 @@ use crate::components::gemeinsam::{
     Dialog, Fehlermeldung, Laden, Leer, Seitenkopf, ZeilenAktionen, bestaetigt, ergebnis_beobachten,
     meldung_aus,
 };
-use crate::models::{Aktion, Bereich, DATETIME_LOCAL, Mitarbeiter, Termin, TerminEingabe};
+use crate::models::{Adresse, Aktion, Bereich, DATETIME_LOCAL, Mitarbeiter, Termin, TerminEingabe, TerminStatus};
 
 const ANZEIGE_DATUM: &str = "%d.%m.%Y";
 const ANZEIGE_ZEIT: &str = "%H:%M";
@@ -28,6 +28,7 @@ pub struct TerminMaske {
     ende: RwSignal<String>,
     adresse_id: RwSignal<String>,
     max_teilnehmer: RwSignal<String>,
+    status: RwSignal<TerminStatus>,
     ausgewaehlt: RwSignal<Vec<Uuid>>,
     suche: RwSignal<String>,
     meldung: RwSignal<Option<String>>,
@@ -53,6 +54,7 @@ impl TerminMaske {
             ende: RwSignal::new(String::new()),
             adresse_id: RwSignal::new(String::new()),
             max_teilnehmer: RwSignal::new(STANDARD_MAX_TEILNEHMER.to_string()),
+            status: RwSignal::new(TerminStatus::Neu),
             ausgewaehlt: RwSignal::new(Vec::new()),
             suche: RwSignal::new(String::new()),
             meldung: RwSignal::new(None),
@@ -78,6 +80,7 @@ impl TerminMaske {
         self.ende.set(t.ende.format(DATETIME_LOCAL).to_string());
         self.adresse_id.set(t.adresse.map(|a| a.id.to_string()).unwrap_or_default());
         self.max_teilnehmer.set(t.max_teilnehmer.to_string());
+        self.status.set(t.status);
         self.ausgewaehlt.set(t.mitarbeiter.iter().map(|m| m.id).collect());
         self.zuruecksetzen();
     }
@@ -89,6 +92,8 @@ impl TerminMaske {
         self.ende.set(String::new());
         self.adresse_id.set(adresse.map(|a| a.to_string()).unwrap_or_default());
         self.max_teilnehmer.set(max_teilnehmer);
+        // Neue Termine beginnen immer bei „Neu“
+        self.status.set(TerminStatus::Neu);
         self.ausgewaehlt.set(Vec::new());
         self.zuruecksetzen();
     }
@@ -164,6 +169,7 @@ pub fn TerminSeite() -> impl IntoView {
                                                 <th>"Kurs"</th>
                                                 <th class="hidden sm:table-cell">"Datum"</th>
                                                 <th class="hidden lg:table-cell">"Veranstaltungsort"</th>
+                                                <th>"Status"</th>
                                                 <th>
                                                     <span class="sm:hidden">"Plätze"</span>
                                                     <span class="hidden sm:inline">"Teilnehmende"</span>
@@ -185,8 +191,9 @@ pub fn TerminSeite() -> impl IntoView {
                                                 let zeit = format!("{} – {}", t.beginn.format(ANZEIGE_ZEIT), t.ende.format(ANZEIGE_ZEIT));
                                                 let datum_kurz = datum.clone();
                                                 let zeit_kurz = zeit.clone();
-                                                let adresse_kurz = t.adresse.as_ref().map(|a| a.anzeige()).unwrap_or_default();
-                                                let adresse_zeilen = t.adresse.as_ref().map(|a| a.zeilen()).unwrap_or_default();
+                                                let adresse_kurz = t.adresse.clone();
+                                                let adresse = t.adresse.clone();
+                                                let status = t.status;
                                                 let belegt = t.mitarbeiter.len();
                                                 let voll = belegt >= t.max_teilnehmer as usize;
                                                 let plaetze = format!("{belegt} / {}", t.max_teilnehmer);
@@ -202,7 +209,9 @@ pub fn TerminSeite() -> impl IntoView {
                                                         <td>
                                                             <div class="font-medium">{t.kurs_titel}</div>
                                                             // Auf kleinen Bildschirmen steht der Veranstaltungsort unter dem Kurs
-                                                            <div class="text-xs text-base-content/60 lg:hidden">{adresse_kurz}</div>
+                                                            <div class="mt-0.5 text-xs text-base-content/60 lg:hidden">
+                                                                <AdresseZeilen adresse=adresse_kurz/>
+                                                            </div>
                                                             // Auf dem Smartphone auch Datum und Zeit
                                                             <div class="text-xs text-base-content/60 sm:hidden">{format!("{datum_kurz} · {zeit_kurz}")}</div>
                                                         </td>
@@ -210,11 +219,13 @@ pub fn TerminSeite() -> impl IntoView {
                                                             <div>{datum}</div>
                                                             <div class="text-xs text-base-content/60">{zeit}</div>
                                                         </td>
-                                                        // Bezeichnung, Strasse und PLZ/Ort je auf einer Zeile
                                                         <td class="hidden lg:table-cell">
-                                                            {adresse_zeilen.into_iter().enumerate().map(|(i, zeile)| view! {
-                                                                <div class:font-medium=i == 0 class=("text-xs", i > 0) class=("text-base-content/60", i > 0)>{zeile}</div>
-                                                            }).collect_view()}
+                                                            <AdresseZeilen adresse/>
+                                                        </td>
+                                                        <td>
+                                                            <span class=format!("badge badge-sm whitespace-nowrap {}", status.badge_klasse())>
+                                                                {status.titel()}
+                                                            </span>
                                                         </td>
                                                         <td>
                                                             <button type="button"
@@ -306,7 +317,7 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
     let adressen = Resource::new(|| (), |_| adressen_laden());
     let mitarbeiter = Resource::new(|| (), |_| mitarbeiter_laden());
 
-    let TerminMaske { offen, bearbeite, kurs_id, beginn, ende, adresse_id, max_teilnehmer, ausgewaehlt, suche, meldung, hinweis, weiterer } = maske;
+    let TerminMaske { offen, bearbeite, kurs_id, beginn, ende, adresse_id, max_teilnehmer, status, ausgewaehlt, suche, meldung, hinweis, weiterer } = maske;
 
     ergebnis_beobachten(speichern.value(), meldung, move || {
         if weiterer.get_untracked() {
@@ -335,6 +346,7 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
                 ende: ende.get_untracked(),
                 adresse_id: adresse_id.get_untracked().parse().ok(),
                 max_teilnehmer: max,
+                status: status.get_untracked(),
                 mitarbeiter_ids: ausgewaehlt.get_untracked(),
             },
         });
@@ -362,6 +374,10 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
                     </div>
                 </Show>
                 <Fehlermeldung meldung/>
+                <fieldset class="fieldset">
+                    <legend class="fieldset-legend">"Status"</legend>
+                    <StatusTimeline status/>
+                </fieldset>
                 <fieldset class="fieldset">
                     <legend class="fieldset-legend">"Kurs"</legend>
                     <select class="select w-full" required
@@ -462,6 +478,63 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
             </form>
         </Dialog>
     }
+}
+
+/// Ablauf des Termins als Timeline. Ein Klick auf einen Schritt setzt den
+/// Status; gespeichert wird er mit dem Termin.
+#[component]
+fn StatusTimeline(status: RwSignal<TerminStatus>) -> impl IntoView {
+    let letzter = TerminStatus::ALLE.len() - 1;
+    view! {
+        <ul class="timeline timeline-horizontal timeline-compact w-full" role="radiogroup" aria-label="Status">
+            {TerminStatus::ALLE.into_iter().enumerate().map(|(i, schritt)| {
+                let erreicht = move |n: usize| status.get().schritt() >= n;
+                let aktuell = move || status.get() == schritt;
+                // Linie vor bzw. nach dem Schritt in der Farbe des erreichten Schritts
+                let linie = move |n: usize| if erreicht(n) { TerminStatus::ALLE[n].bg_klasse() } else { "" };
+                view! {
+                    <li class="flex-1">
+                        {(i > 0).then(|| view! { <hr class=move || linie(i)/> })}
+                        <button type="button"
+                            class=move || format!("timeline-middle cursor-pointer {}",
+                                if erreicht(i) { schritt.text_klasse() } else { "text-base-content/30" })
+                            role="radio" aria-checked=move || aktuell().to_string() aria-label=schritt.titel()
+                            on:click=move |_| status.set(schritt)>
+                            {move || {
+                                let symbol = if aktuell() {
+                                    icondata::LuCircleDot
+                                } else if erreicht(i) {
+                                    icondata::LuCircleCheck
+                                } else {
+                                    icondata::LuCircle
+                                };
+                                view! { <Icon icon=symbol width="1.25rem" height="1.25rem"/> }
+                            }}
+                        </button>
+                        <button type="button" tabindex="-1"
+                            class=move || format!("timeline-end timeline-box cursor-pointer px-2 py-1 text-center text-xs leading-tight {}",
+                                if aktuell() { format!("font-semibold {}", schritt.text_klasse()) } else { "text-base-content/70".to_string() })
+                            on:click=move |_| status.set(schritt)>
+                            {schritt.titel()}
+                        </button>
+                        {(i < letzter).then(|| view! { <hr class=move || linie(i + 1)/> })}
+                    </li>
+                }
+            }).collect_view()}
+        </ul>
+    }
+}
+
+/// Adresse dreizeilig: Firmenname/Name, Strasse, PLZ Ort.
+#[component]
+fn AdresseZeilen(adresse: Option<Adresse>) -> impl IntoView {
+    adresse.map(|a| {
+        a.zeilen()
+            .into_iter()
+            .enumerate()
+            .map(|(i, zeile)| view! { <div class:font-medium=i == 0>{zeile}</div> })
+            .collect_view()
+    })
 }
 
 /// Suchbare Mehrfachauswahl der Teilnehmenden. Ausgewählte stehen als Badges
@@ -594,6 +667,9 @@ fn TeilnehmerPanel(
                 <div class="min-w-0">
                     <h2 class="truncate font-semibold">{termin.kurs_titel}</h2>
                     <p class="text-sm text-base-content/60">{datum}</p>
+                    <div class="mt-1 text-sm text-base-content/60">
+                        <AdresseZeilen adresse=termin.adresse.clone()/>
+                    </div>
                     <span class="badge badge-sm mt-1"
                         class=(["badge-warning", "badge-soft"], voll)
                         class:badge-ghost=!voll>
