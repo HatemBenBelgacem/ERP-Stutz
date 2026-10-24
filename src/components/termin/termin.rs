@@ -12,8 +12,8 @@ use crate::components::gemeinsam::{
 };
 use crate::models::{Adresse, Aktion, Bereich, DATETIME_LOCAL, Mitarbeiter, Termin, TerminEingabe, TerminStatus};
 
-const ANZEIGE_DATUM: &str = "%d.%m.%Y";
-const ANZEIGE_ZEIT: &str = "%H:%M";
+pub(crate) const ANZEIGE_DATUM: &str = "%d.%m.%Y";
+pub(crate) const ANZEIGE_ZEIT: &str = "%H:%M";
 const STANDARD_MAX_TEILNEHMER: &str = "20";
 
 /// Zustand der Termin-Eingabemaske. Die Termin- und die Kursseite nutzen
@@ -665,7 +665,7 @@ fn AdresseAuswahl(liste: Vec<Adresse>, adresse_id: RwSignal<String>) -> impl Int
 
 /// Adresse dreizeilig: Firmenname/Name, Strasse, PLZ Ort.
 #[component]
-fn AdresseZeilen(adresse: Option<Adresse>) -> impl IntoView {
+pub(crate) fn AdresseZeilen(adresse: Option<Adresse>) -> impl IntoView {
     adresse.map(|a| {
         a.zeilen()
             .into_iter()
@@ -678,7 +678,7 @@ fn AdresseZeilen(adresse: Option<Adresse>) -> impl IntoView {
 /// Suchbare Mehrfachauswahl der Teilnehmenden. Ausgewählte stehen als Badges
 /// oberhalb der Suche und bleiben sichtbar, auch wenn der Filter sie ausblendet.
 #[component]
-fn MitarbeiterAuswahl(
+pub(crate) fn MitarbeiterAuswahl(
     liste: Vec<Mitarbeiter>,
     ausgewaehlt: RwSignal<Vec<Uuid>>,
     suche: RwSignal<String>,

@@ -210,7 +210,7 @@ pub async fn adresse_loeschen(id: Uuid) -> Result<(), ServerFnError> {
 
 #[server(input = Json)]
 pub async fn mitarbeiter_laden() -> Result<Vec<Mitarbeiter>, ServerFnError> {
-    crate::backend::auth::server::recht_pflicht(&[(Bereich::Mitarbeiter, Aktion::Sehen), (Bereich::Termine, Aktion::Sehen)]).await?;
+    crate::backend::auth::server::recht_pflicht(&[(Bereich::Mitarbeiter, Aktion::Sehen), (Bereich::Termine, Aktion::Sehen), (Bereich::Anmeldung, Aktion::Sehen)]).await?;
     use crate::backend::db::{fehler, pool};
     sqlx::query_as(
         "SELECT id, vorname, nachname, email, abteilung FROM mitarbeiter ORDER BY nachname, vorname",
@@ -274,6 +274,31 @@ pub async fn mitarbeiter_loeschen(id: Uuid) -> Result<(), ServerFnError> {
 #[server(input = Json)]
 pub async fn termine_laden() -> Result<Vec<Termin>, ServerFnError> {
     crate::backend::auth::server::recht_pflicht(&[(Bereich::Termine, Aktion::Sehen)]).await?;
+    termine_abfragen(false).await
+}
+
+/// Termine, die noch nicht beendet sind und nicht in der Vergangenheit liegen.
+#[server(input = Json)]
+pub async fn aktive_termine_laden() -> Result<Vec<Termin>, ServerFnError> {
+    crate::backend::auth::server::recht_pflicht(&[(Bereich::Anmeldung, Aktion::Sehen), (Bereich::Termine, Aktion::Sehen)]).await?;
+    termine_abfragen(true).await
+}
+
+/// Mitarbeitende zu einem Termin anmelden. Bisherige Teilnehmende bleiben,
+/// alle anderen Angaben zum Termin auch.
+#[server(input = Json)]
+pub async fn teilnehmende_anmelden(termin_id: Uuid, mitarbeiter_ids: Vec<Uuid>) -> Result<(), ServerFnError> {
+    crate::backend::auth::server::recht_pflicht(&[
+        (Bereich::Anmeldung, Aktion::TeilnehmendeHinzufuegen),
+        (Bereich::Termine, Aktion::TeilnehmendeHinzufuegen),
+        (Bereich::Termine, Aktion::Bearbeiten),
+    ])
+    .await?;
+    teilnehmende_hinzufuegen(termin_id, mitarbeiter_ids).await
+}
+
+#[cfg(feature = "ssr")]
+async fn termine_abfragen(nur_aktive: bool) -> Result<Vec<Termin>, ServerFnError> {
     use std::collections::HashMap;
 
     use chrono::NaiveDateTime;
@@ -290,8 +315,10 @@ pub async fn termine_laden() -> Result<Vec<Termin>, ServerFnError> {
          FROM termin t
          JOIN kurs k ON k.id = t.kurs_id
          LEFT JOIN adresse a ON a.id = t.adresse_id
+         WHERE NOT $1 OR (t.status <> 'beendet' AND t.ende >= localtimestamp)
          ORDER BY t.beginn",
     )
+    .bind(nur_aktive)
     .fetch_all(pool())
     .await
     .map_err(fehler)?;

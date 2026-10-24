@@ -228,6 +228,7 @@ pub struct Rolle {
 pub enum Bereich {
     Termine,
     Kurse,
+    Anmeldung,
     Geschaeftsbereiche,
     Mitarbeiter,
     Adressen,
@@ -242,12 +243,13 @@ pub enum Bereich {
 
 impl Bereich {
     /// Bereiche der Gruppe „Personal“
-    pub const PERSONAL: [Bereich; 3] = [Bereich::Termine, Bereich::Kurse, Bereich::Mitarbeiter];
+    pub const PERSONAL: [Bereich; 4] = [Bereich::Termine, Bereich::Kurse, Bereich::Anmeldung, Bereich::Mitarbeiter];
     /// Reiter unter „Personal › Weiterbildung“
-    pub const WEITERBILDUNG: [Bereich; 2] = [Bereich::Termine, Bereich::Kurse];
-    pub const HAUPTBEREICHE: [Bereich; 9] = [
+    pub const WEITERBILDUNG: [Bereich; 3] = [Bereich::Termine, Bereich::Kurse, Bereich::Anmeldung];
+    pub const HAUPTBEREICHE: [Bereich; 10] = [
         Bereich::Termine,
         Bereich::Kurse,
+        Bereich::Anmeldung,
         Bereich::Mitarbeiter,
         Bereich::Adressen,
         Bereich::Einkauf,
@@ -257,9 +259,10 @@ impl Bereich {
         Bereich::Finanzen,
     ];
     pub const EINSTELLUNGEN: [Bereich; 3] = [Bereich::Benutzer, Bereich::Rollen, Bereich::Geschaeftsbereiche];
-    pub const ALLE: [Bereich; 12] = [
+    pub const ALLE: [Bereich; 13] = [
         Bereich::Termine,
         Bereich::Kurse,
+        Bereich::Anmeldung,
         Bereich::Mitarbeiter,
         Bereich::Adressen,
         Bereich::Einkauf,
@@ -277,6 +280,7 @@ impl Bereich {
         match self {
             Bereich::Termine => "termine",
             Bereich::Kurse => "kurse",
+            Bereich::Anmeldung => "anmeldung",
             Bereich::Geschaeftsbereiche => "geschaeftsbereiche",
             Bereich::Mitarbeiter => "mitarbeiter",
             Bereich::Adressen => "adressen",
@@ -294,6 +298,7 @@ impl Bereich {
         match self {
             Bereich::Termine => "Termine",
             Bereich::Kurse => "Kurse",
+            Bereich::Anmeldung => "Anmeldung",
             Bereich::Geschaeftsbereiche => "Geschäftsbereiche",
             Bereich::Mitarbeiter => "Mitarbeiter",
             Bereich::Adressen => "Adressen",
@@ -311,6 +316,7 @@ impl Bereich {
         match self {
             Bereich::Termine => "/personal/weiterbildung/termine",
             Bereich::Kurse => "/personal/weiterbildung/kurse",
+            Bereich::Anmeldung => "/personal/weiterbildung/anmeldung",
             Bereich::Geschaeftsbereiche => "/einstellungen/geschaeftsbereiche",
             Bereich::Mitarbeiter => "/personal/mitarbeiter",
             Bereich::Adressen => "/adressen",
@@ -344,6 +350,8 @@ impl Bereich {
             }
             // Bei Terminen lassen sich Teilnehmende auch ohne „Bearbeiten“ hinzufügen
             Bereich::Termine => &Aktion::ALLE,
+            // Anmeldung: aktive Termine sehen und Mitarbeitende anmelden
+            Bereich::Anmeldung => &[Aktion::Sehen, Aktion::TeilnehmendeHinzufuegen],
             _ => &Aktion::STANDARD,
         }
     }

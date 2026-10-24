@@ -17,6 +17,7 @@ use crate::components::mitarbeiter::MitarbeiterSeite;
 use crate::components::modul::ModulSeite;
 use crate::components::rolle::RollenSeite;
 use crate::components::termin::TerminSeite;
+use crate::components::termin_anmeldung::TerminAnmeldungSeite;
 use crate::components::weiterbildung::{WeiterbildungSeite, WeiterbildungStart};
 use crate::models::{Aktion, Benutzer, Bereich};
 
@@ -149,6 +150,10 @@ pub fn App() -> impl IntoView {
                             <Route
                                 path=StaticSegment("kurse")
                                 view=|| view! { <Bereichsschutz bereich=Bereich::Kurse><KursSeite/></Bereichsschutz> }
+                            />
+                            <Route
+                                path=StaticSegment("anmeldung")
+                                view=|| view! { <Bereichsschutz bereich=Bereich::Anmeldung><TerminAnmeldungSeite/></Bereichsschutz> }
                             />
                         </ParentRoute>
                         <Route
