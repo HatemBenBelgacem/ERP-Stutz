@@ -7,7 +7,7 @@ use crate::backend::api::{TeilnehmendeSpeichern, aktive_termine_laden, mitarbeit
 use crate::components::gemeinsam::{
     Dialog, DialogAktionen, Fehlermeldung, Laden, Leer, Seitenkopf, ergebnis_beobachten, meldung_aus,
 };
-use crate::components::termin::{ANZEIGE_DATUM, ANZEIGE_ZEIT, AdresseZeilen, MitarbeiterAuswahl};
+use crate::components::termin::{ANZEIGE_DATUM, ANZEIGE_ZEIT, AdresseZeilen, BereichBadges, MitarbeiterAuswahl};
 use crate::models::{Aktion, Bereich, Termin};
 
 /// Aktive Termine als Kacheln. Hier lassen sich nur Teilnehmende an- und
@@ -89,12 +89,16 @@ fn TerminKachel(
     let status = termin.status;
     let adresse = termin.adresse.clone();
     let titel = termin.kurs_titel.clone();
+    let bereiche = termin.geschaeftsbereiche.clone();
 
     view! {
         <div class="card border border-base-300 bg-base-100">
             <div class="card-body gap-3 p-5">
                 <div class="flex items-start justify-between gap-2">
-                    <h2 class="card-title text-base leading-snug">{titel}</h2>
+                    <div>
+                        <h2 class="card-title text-base leading-snug">{titel}</h2>
+                        <BereichBadges bereiche/>
+                    </div>
                     <span class=format!("badge badge-sm shrink-0 whitespace-nowrap {}", status.badge_klasse())>
                         {status.titel()}
                     </span>

@@ -203,7 +203,7 @@ pub fn KursSeite() -> impl IntoView {
 
 /// Mehrfachauswahl der Geschäftsbereiche eines Kurses.
 #[component]
-fn BereichAuswahl(liste: Vec<Geschaeftsbereich>, gewaehlt: RwSignal<Vec<Uuid>>) -> impl IntoView {
+pub(crate) fn BereichAuswahl(liste: Vec<Geschaeftsbereich>, gewaehlt: RwSignal<Vec<Uuid>>) -> impl IntoView {
     if liste.is_empty() {
         return view! { <p class="p-2 text-base-content/60">"Noch keine Geschäftsbereiche erfasst."</p> }.into_any();
     }

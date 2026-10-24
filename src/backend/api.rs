@@ -119,7 +119,7 @@ pub async fn kurs_loeschen(id: Uuid) -> Result<(), ServerFnError> {
 
 #[server(input = Json)]
 pub async fn geschaeftsbereiche_laden() -> Result<Vec<Geschaeftsbereich>, ServerFnError> {
-    crate::backend::auth::server::recht_pflicht(&[(Bereich::Geschaeftsbereiche, Aktion::Sehen), (Bereich::Kurse, Aktion::Sehen)]).await?;
+    crate::backend::auth::server::recht_pflicht(&[(Bereich::Geschaeftsbereiche, Aktion::Sehen), (Bereich::Kurse, Aktion::Sehen), (Bereich::Termine, Aktion::Sehen)]).await?;
     use crate::backend::db::{fehler, pool};
     sqlx::query_as("SELECT id, beschreibung FROM geschaeftsbereich ORDER BY beschreibung")
         .fetch_all(pool())
@@ -332,6 +332,19 @@ async fn termine_abfragen(nur_aktive: bool) -> Result<Vec<Termin>, ServerFnError
     .await
     .map_err(fehler)?;
 
+    let bereiche: Vec<(Uuid, Uuid, String)> = sqlx::query_as(
+        "SELECT tg.termin_id, g.id, g.beschreibung
+         FROM termin_geschaeftsbereich tg JOIN geschaeftsbereich g ON g.id = tg.geschaeftsbereich_id
+         ORDER BY g.beschreibung",
+    )
+    .fetch_all(pool())
+    .await
+    .map_err(fehler)?;
+    let mut bereiche_pro_termin: HashMap<Uuid, Vec<Geschaeftsbereich>> = HashMap::new();
+    for (termin_id, id, beschreibung) in bereiche {
+        bereiche_pro_termin.entry(termin_id).or_default().push(Geschaeftsbereich { id, beschreibung });
+    }
+
     let mut pro_termin: HashMap<Uuid, Vec<Mitarbeiter>> = HashMap::new();
     for (termin_id, id, vorname, nachname, email, abteilung) in teilnahmen {
         pro_termin.entry(termin_id).or_default().push(Mitarbeiter {
@@ -347,6 +360,7 @@ async fn termine_abfragen(nur_aktive: bool) -> Result<Vec<Termin>, ServerFnError
         .into_iter()
         .map(|(id, kurs_id, kurs_titel, beginn, ende, max_teilnehmer, status, adresse_id, bezeichnung, strasse, plz, ort)| Termin {
             mitarbeiter: pro_termin.remove(&id).unwrap_or_default(),
+            geschaeftsbereiche: bereiche_pro_termin.remove(&id).unwrap_or_default(),
             adresse: adresse_id.map(|adresse_id| Adresse {
                 id: adresse_id,
                 bezeichnung: bezeichnung.unwrap_or_default(),
@@ -444,6 +458,22 @@ pub async fn termin_speichern(id: Option<Uuid>, eingabe: TerminEingabe) -> Resul
     )
     .bind(termin_id)
     .bind(eingabe.mitarbeiter_ids)
+    .execute(&mut *tx)
+    .await
+    .map_err(fehler)?;
+
+    // Geschäftsbereiche des Termins neu setzen
+    sqlx::query("DELETE FROM termin_geschaeftsbereich WHERE termin_id = $1")
+        .bind(termin_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(fehler)?;
+    sqlx::query(
+        "INSERT INTO termin_geschaeftsbereich (termin_id, geschaeftsbereich_id)
+         SELECT $1, UNNEST($2::uuid[]) ON CONFLICT DO NOTHING",
+    )
+    .bind(termin_id)
+    .bind(eingabe.geschaeftsbereich_ids)
     .execute(&mut *tx)
     .await
     .map_err(fehler)?;

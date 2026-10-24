@@ -76,6 +76,8 @@ pub struct Termin {
     pub adresse: Option<Adresse>,
     pub max_teilnehmer: i32,
     pub status: TerminStatus,
+    /// Geschäftsbereiche des Termins (M:N); anfangs die des Kurses
+    pub geschaeftsbereiche: Vec<Geschaeftsbereich>,
     pub mitarbeiter: Vec<Mitarbeiter>,
 }
 
@@ -161,6 +163,7 @@ pub struct TerminEingabe {
     pub adresse_id: Option<Uuid>,
     pub max_teilnehmer: i32,
     pub status: TerminStatus,
+    pub geschaeftsbereich_ids: Vec<Uuid>,
     pub mitarbeiter_ids: Vec<Uuid>,
 }
 

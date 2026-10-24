@@ -4,8 +4,10 @@ use uuid::Uuid;
 
 use crate::app::{Recht, use_sitzung};
 use crate::backend::api::{
-    TerminLoeschen, TerminSpeichern, adressen_laden, kurse_laden, mitarbeiter_laden, termine_laden,
+    TerminLoeschen, TerminSpeichern, adressen_laden, geschaeftsbereiche_laden, kurse_laden, mitarbeiter_laden,
+    termine_laden,
 };
+use crate::components::kurs::BereichAuswahl;
 use crate::components::gemeinsam::{
     Dialog, Fehlermeldung, Laden, Leer, Seitenkopf, ZeilenAktionen, bestaetigt, ergebnis_beobachten,
     meldung_aus,
@@ -29,6 +31,9 @@ pub struct TerminMaske {
     adresse_id: RwSignal<String>,
     max_teilnehmer: RwSignal<String>,
     status: RwSignal<TerminStatus>,
+    geschaeftsbereiche: RwSignal<Vec<Uuid>>,
+    /// Geschäftsbereiche vom gewählten Kurs übernehmen, sobald die Kurse geladen sind
+    bereiche_vom_kurs: RwSignal<bool>,
     ausgewaehlt: RwSignal<Vec<Uuid>>,
     suche: RwSignal<String>,
     meldung: RwSignal<Option<String>>,
@@ -57,6 +62,8 @@ impl TerminMaske {
             adresse_id: RwSignal::new(String::new()),
             max_teilnehmer: RwSignal::new(STANDARD_MAX_TEILNEHMER.to_string()),
             status: RwSignal::new(TerminStatus::Neu),
+            geschaeftsbereiche: RwSignal::new(Vec::new()),
+            bereiche_vom_kurs: RwSignal::new(false),
             ausgewaehlt: RwSignal::new(Vec::new()),
             suche: RwSignal::new(String::new()),
             meldung: RwSignal::new(None),
@@ -71,9 +78,15 @@ impl TerminMaske {
         self.vorlage(kurs, None, STANDARD_MAX_TEILNEHMER.to_string());
     }
 
-    /// Neuer Termin zum gleichen Kurs wie `t`; Adresse und Plätze werden übernommen.
+    /// Neuer Termin zum gleichen Kurs wie `t`; Adresse, Plätze und Geschäftsbereiche werden übernommen.
     pub fn gleicher_kurs(&self, t: &Termin) {
         self.vorlage(Some(t.kurs_id), t.adresse.as_ref().map(|a| a.id), t.max_teilnehmer.to_string());
+        self.geschaeftsbereiche_setzen(t.geschaeftsbereiche.iter().map(|b| b.id).collect());
+    }
+
+    fn geschaeftsbereiche_setzen(&self, ids: Vec<Uuid>) {
+        self.geschaeftsbereiche.set(ids);
+        self.bereiche_vom_kurs.set(false);
     }
 
     pub fn bearbeiten(&self, t: Termin) {
@@ -84,6 +97,7 @@ impl TerminMaske {
         self.adresse_id.set(t.adresse.map(|a| a.id.to_string()).unwrap_or_default());
         self.max_teilnehmer.set(t.max_teilnehmer.to_string());
         self.status.set(t.status);
+        self.geschaeftsbereiche_setzen(t.geschaeftsbereiche.iter().map(|b| b.id).collect());
         self.ausgewaehlt.set(t.mitarbeiter.iter().map(|m| m.id).collect());
         self.nur_teilnehmende.set(false);
         self.zuruecksetzen();
@@ -104,6 +118,9 @@ impl TerminMaske {
         self.max_teilnehmer.set(max_teilnehmer);
         // Neue Termine beginnen immer bei „Neu“
         self.status.set(TerminStatus::Neu);
+        // Geschäftsbereiche kommen vom Kurs (siehe TerminDialog)
+        self.geschaeftsbereiche.set(Vec::new());
+        self.bereiche_vom_kurs.set(true);
         self.ausgewaehlt.set(Vec::new());
         self.nur_teilnehmende.set(false);
         self.zuruecksetzen();
@@ -121,7 +138,9 @@ impl TerminMaske {
     fn naechster_termin(&self) {
         let kurs = self.kurs_id.get_untracked().parse().ok();
         let adresse = self.adresse_id.get_untracked().parse().ok();
+        let bereiche = self.geschaeftsbereiche.get_untracked();
         self.vorlage(kurs, adresse, self.max_teilnehmer.get_untracked());
+        self.geschaeftsbereiche_setzen(bereiche);
         self.hinweis.set(Some("Termin gespeichert – jetzt den nächsten Termin zum gleichen Kurs erfassen.".into()));
     }
 }
@@ -233,6 +252,7 @@ pub fn TerminSeite() -> impl IntoView {
                                                         on:dblclick=move |_| termin_oeffnen(fuer_doppelklick.clone())>
                                                         <td>
                                                             <div class="font-medium">{t.kurs_titel}</div>
+                                                            <BereichBadges bereiche=t.geschaeftsbereiche.clone()/>
                                                             // Auf kleinen Bildschirmen steht der Veranstaltungsort unter dem Kurs
                                                             <div class="mt-0.5 text-xs text-base-content/60 lg:hidden">
                                                                 <AdresseZeilen adresse=adresse_kurz/>
@@ -352,13 +372,28 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
     let darf_anlegen = use_sitzung().recht(Bereich::Termine, Aktion::Anlegen);
     // Auswahllisten für Kurs (N:1), Adresse (N:1) und Teilnehmende (M:N)
     let kurse = Resource::new(|| (), |_| kurse_laden());
+    let alle_bereiche = Resource::new(|| (), |_| geschaeftsbereiche_laden());
     let adressen = Resource::new(|| (), |_| adressen_laden());
     let mitarbeiter = Resource::new(|| (), |_| mitarbeiter_laden());
 
     let TerminMaske {
         offen, bearbeite, kurs_id, beginn, ende, adresse_id, max_teilnehmer, status,
-        ausgewaehlt, suche, meldung, hinweis, weiterer, nur_teilnehmende,
+        geschaeftsbereiche, bereiche_vom_kurs, ausgewaehlt, suche, meldung, hinweis, weiterer, nur_teilnehmende,
     } = maske;
+
+    // Bereiche des gewählten Kurses übernehmen (neuer Termin oder Kurswechsel)
+    Effect::new(move |_| {
+        if !bereiche_vom_kurs.get() {
+            return;
+        }
+        let id = kurs_id.get();
+        if let Some(Ok(liste)) = kurse.get() {
+            if let Some(k) = liste.iter().find(|k| k.id.to_string() == id) {
+                geschaeftsbereiche.set(k.geschaeftsbereich_ids.clone());
+                bereiche_vom_kurs.set(false);
+            }
+        }
+    });
 
     ergebnis_beobachten(speichern.value(), meldung, move || {
         if weiterer.get_untracked() {
@@ -388,6 +423,7 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
                 adresse_id: adresse_id.get_untracked().parse().ok(),
                 max_teilnehmer: max,
                 status: status.get_untracked(),
+                geschaeftsbereich_ids: geschaeftsbereiche.get_untracked(),
                 mitarbeiter_ids: ausgewaehlt.get_untracked(),
             },
         });
@@ -431,7 +467,10 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
                 <fieldset class="fieldset">
                     <legend class="fieldset-legend">"Kurs"</legend>
                     <select class="select w-full" required
-                        on:change:target=move |ev| kurs_id.set(ev.target().value())>
+                        on:change:target=move |ev| {
+                            kurs_id.set(ev.target().value());
+                            bereiche_vom_kurs.set(true);
+                        }>
                         <option value="" disabled selected=move || kurs_id.get().is_empty()>"Kurs wählen …"</option>
                         <Suspense>
                             {move || Suspend::new(async move {
@@ -445,6 +484,22 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
                             })}
                         </Suspense>
                     </select>
+                </fieldset>
+                <fieldset class="fieldset">
+                    <legend class="fieldset-legend">"Geschäftsbereiche"</legend>
+                    <Suspense fallback=Laden>
+                        {move || Suspend::new(async move {
+                            let liste = alle_bereiche.await.unwrap_or_default();
+                            view! { <BereichAuswahl liste gewaehlt=geschaeftsbereiche/> }
+                        })}
+                    </Suspense>
+                    <p class="label flex-wrap">
+                        "Vorgabe vom Kurs, für diesen Termin anpassbar."
+                        <button type="button" class="link link-primary"
+                            on:click=move |_| bereiche_vom_kurs.set(true)>
+                            "Vom Kurs übernehmen"
+                        </button>
+                    </p>
                 </fieldset>
                 <div class="grid gap-x-4 sm:grid-cols-2">
                     <fieldset class="fieldset">
@@ -653,6 +708,18 @@ fn AdresseAuswahl(liste: Vec<Adresse>, adresse_id: RwSignal<String>) -> impl Int
             </Show>
         </div>
     }
+}
+
+/// Geschäftsbereiche eines Termins als kleine Badges.
+#[component]
+pub(crate) fn BereichBadges(bereiche: Vec<crate::models::Geschaeftsbereich>) -> impl IntoView {
+    (!bereiche.is_empty()).then(|| view! {
+        <div class="mt-1 flex flex-wrap gap-1">
+            {bereiche.into_iter().map(|b| view! {
+                <span class="badge badge-xs badge-primary badge-soft whitespace-nowrap">{b.beschreibung}</span>
+            }).collect_view()}
+        </div>
+    })
 }
 
 /// Adresse dreizeilig: Firmenname/Name, Strasse, PLZ Ort.
