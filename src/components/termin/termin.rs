@@ -36,6 +36,10 @@ pub struct TerminMaske {
     hinweis: RwSignal<Option<String>>,
     /// Nach dem Speichern gleich den nächsten Termin zum gleichen Kurs erfassen
     weiterer: RwSignal<bool>,
+    /// Nur Teilnehmende hinzufügen; alles andere ist gesperrt
+    nur_teilnehmende: RwSignal<bool>,
+    /// Teilnehmende beim Öffnen; im Modus `nur_teilnehmende` nicht entfernbar
+    bestehend: RwSignal<Vec<Uuid>>,
 }
 
 impl Default for TerminMaske {
@@ -60,6 +64,8 @@ impl TerminMaske {
             meldung: RwSignal::new(None),
             hinweis: RwSignal::new(None),
             weiterer: RwSignal::new(false),
+            nur_teilnehmende: RwSignal::new(false),
+            bestehend: RwSignal::new(Vec::new()),
         }
     }
 
@@ -81,8 +87,17 @@ impl TerminMaske {
         self.adresse_id.set(t.adresse.map(|a| a.id.to_string()).unwrap_or_default());
         self.max_teilnehmer.set(t.max_teilnehmer.to_string());
         self.status.set(t.status);
-        self.ausgewaehlt.set(t.mitarbeiter.iter().map(|m| m.id).collect());
+        let ids: Vec<Uuid> = t.mitarbeiter.iter().map(|m| m.id).collect();
+        self.bestehend.set(ids.clone());
+        self.ausgewaehlt.set(ids);
+        self.nur_teilnehmende.set(false);
         self.zuruecksetzen();
+    }
+
+    /// Termin öffnen, um nur Teilnehmende hinzuzufügen (Recht „Teilnehmende hinzufügen“).
+    pub fn teilnehmende_hinzufuegen(&self, t: Termin) {
+        self.bearbeiten(t);
+        self.nur_teilnehmende.set(true);
     }
 
     fn vorlage(&self, kurs: Option<Uuid>, adresse: Option<Uuid>, max_teilnehmer: String) {
@@ -95,6 +110,8 @@ impl TerminMaske {
         // Neue Termine beginnen immer bei „Neu“
         self.status.set(TerminStatus::Neu);
         self.ausgewaehlt.set(Vec::new());
+        self.bestehend.set(Vec::new());
+        self.nur_teilnehmende.set(false);
         self.zuruecksetzen();
     }
 
@@ -121,6 +138,9 @@ pub fn TerminSeite() -> impl IntoView {
     let darf_anlegen = sitzung.recht(Bereich::Termine, Aktion::Anlegen);
     let darf_bearbeiten = sitzung.recht(Bereich::Termine, Aktion::Bearbeiten);
     let darf_loeschen = sitzung.recht(Bereich::Termine, Aktion::Loeschen);
+    let darf_hinzufuegen = sitzung.recht(Bereich::Termine, Aktion::TeilnehmendeHinzufuegen);
+    // Nur hinzufügen, wenn das volle Bearbeiten nicht erlaubt ist
+    let nur_hinzufuegen = move || darf_hinzufuegen.get() && !darf_bearbeiten.get();
     let speichern = ServerAction::<TerminSpeichern>::new();
     let loeschen = ServerAction::<TerminLoeschen>::new();
     let termine = Resource::new(
@@ -133,6 +153,14 @@ pub fn TerminSeite() -> impl IntoView {
     ergebnis_beobachten(loeschen.value(), listen_meldung, || {});
 
     let termin_bearbeiten = move |t: Termin| maske.bearbeiten(t);
+    // Doppelklick: bearbeiten oder, falls nur das erlaubt ist, Teilnehmende hinzufügen
+    let termin_oeffnen = move |t: Termin| {
+        if darf_bearbeiten.get_untracked() {
+            maske.bearbeiten(t)
+        } else if darf_hinzufuegen.get_untracked() {
+            maske.teilnehmende_hinzufuegen(t)
+        }
+    };
 
     // Termin, dessen Teilnehmende rechts angezeigt werden; Daten immer aus der aktuellen Liste
     let panel_termin = RwSignal::new(None::<Uuid>);
@@ -183,6 +211,7 @@ pub fn TerminSeite() -> impl IntoView {
                                                 let fuer_doppelklick = t.clone();
                                                 let fuer_button = t.clone();
                                                 let fuer_gleichen_kurs = t.clone();
+                                                let fuer_hinzufuegen = t.clone();
                                                 let datum = if t.beginn.date() == t.ende.date() {
                                                     t.beginn.format(ANZEIGE_DATUM).to_string()
                                                 } else {
@@ -201,11 +230,13 @@ pub fn TerminSeite() -> impl IntoView {
                                                 view! {
                                                     <tr class="select-none hover:bg-base-300/60"
                                                         class=("bg-primary/5", ist_offen)
-                                                        class:cursor-pointer=move || darf_bearbeiten.get()
-                                                        title=move || darf_bearbeiten.get().then_some("Doppelklick zum Bearbeiten")
-                                                        on:dblclick=move |_| if darf_bearbeiten.get_untracked() {
-                                                            termin_bearbeiten(fuer_doppelklick.clone())
-                                                        }>
+                                                        class:cursor-pointer=move || darf_bearbeiten.get() || darf_hinzufuegen.get()
+                                                        title=move || if darf_bearbeiten.get() {
+                                                            Some("Doppelklick zum Bearbeiten")
+                                                        } else {
+                                                            darf_hinzufuegen.get().then_some("Doppelklick, um Teilnehmende hinzuzufügen")
+                                                        }
+                                                        on:dblclick=move |_| termin_oeffnen(fuer_doppelklick.clone())>
                                                         <td>
                                                             <div class="font-medium">{t.kurs_titel}</div>
                                                             // Auf kleinen Bildschirmen steht der Veranstaltungsort unter dem Kurs
@@ -258,6 +289,18 @@ pub fn TerminSeite() -> impl IntoView {
                                                                         <Icon icon=icondata::LuCopyPlus/>
                                                                     </button>
                                                                 </Show>
+                                                                <Show when=nur_hinzufuegen>
+                                                                    <button class="btn btn-ghost btn-sm btn-square"
+                                                                        title="Teilnehmende hinzufügen"
+                                                                        aria-label="Teilnehmende hinzufügen"
+                                                                        on:dblclick=|ev| ev.stop_propagation()
+                                                                        on:click={
+                                                                            let t = fuer_hinzufuegen.clone();
+                                                                            move |_| maske.teilnehmende_hinzufuegen(t.clone())
+                                                                        }>
+                                                                        <Icon icon=icondata::LuUserPlus/>
+                                                                    </button>
+                                                                </Show>
                                                                 <PdfKnopf termin_id=id/>
                                                                 <ZeilenAktionen
                                                                     bearbeiten=move || termin_bearbeiten(fuer_button.clone())
@@ -294,8 +337,9 @@ pub fn TerminSeite() -> impl IntoView {
                         <TeilnehmerPanel
                             termin=t
                             schliessen=move || panel_termin.set(None)
-                            bearbeiten=move |t| termin_bearbeiten(t)
+                            bearbeiten=move |t| termin_oeffnen(t)
                             darf_bearbeiten
+                            darf_hinzufuegen
                         />
                     </aside>
                 })}
@@ -317,7 +361,12 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
     let adressen = Resource::new(|| (), |_| adressen_laden());
     let mitarbeiter = Resource::new(|| (), |_| mitarbeiter_laden());
 
-    let TerminMaske { offen, bearbeite, kurs_id, beginn, ende, adresse_id, max_teilnehmer, status, ausgewaehlt, suche, meldung, hinweis, weiterer } = maske;
+    let TerminMaske {
+        offen, bearbeite, kurs_id, beginn, ende, adresse_id, max_teilnehmer, status,
+        ausgewaehlt, suche, meldung, hinweis, weiterer, nur_teilnehmende, bestehend,
+    } = maske;
+    // Im Modus „nur hinzufügen“ lassen sich bisherige Teilnehmende nicht entfernen
+    let gesperrt = Signal::derive(move || if nur_teilnehmende.get() { bestehend.get() } else { Vec::new() });
 
     ergebnis_beobachten(speichern.value(), meldung, move || {
         if weiterer.get_untracked() {
@@ -360,7 +409,14 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
     let ueberbucht = move || max_plaetze.get().is_some_and(|max| ausgewaehlt.with(Vec::len) > max);
 
     let dialog_titel = Signal::derive(move || {
-        if bearbeite.get().is_some() { "Termin bearbeiten" } else { "Neuer Termin" }.to_string()
+        if nur_teilnehmende.get() {
+            "Teilnehmende hinzufügen"
+        } else if bearbeite.get().is_some() {
+            "Termin bearbeiten"
+        } else {
+            "Neuer Termin"
+        }
+        .to_string()
     });
     let beschaeftigt = speichern.pending();
 
@@ -374,6 +430,8 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
                     </div>
                 </Show>
                 <Fehlermeldung meldung/>
+                // Bei „nur Teilnehmende hinzufügen“ sind alle Angaben zum Termin gesperrt
+                <fieldset class="contents" disabled=move || nur_teilnehmende.get()>
                 <fieldset class="fieldset">
                     <legend class="fieldset-legend">"Status"</legend>
                     <StatusTimeline status/>
@@ -409,27 +467,19 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
                 <div class="grid gap-x-4 sm:grid-cols-[1fr_10rem]">
                     <fieldset class="fieldset min-w-0">
                         <legend class="fieldset-legend">"Veranstaltungsort"</legend>
-                        <select class="select w-full"
-                            on:change:target=move |ev| adresse_id.set(ev.target().value())>
-                            <option value="" selected=move || adresse_id.get().is_empty()>"Kein Veranstaltungsort"</option>
-                            <Suspense>
-                                {move || Suspend::new(async move {
-                                    adressen.await.unwrap_or_default().into_iter().map(|a| {
-                                        let id = a.id.to_string();
-                                        let wert = id.clone();
-                                        view! {
-                                            <option value=id selected=move || adresse_id.get() == wert>{a.anzeige()}</option>
-                                        }
-                                    }).collect_view()
-                                })}
-                            </Suspense>
-                        </select>
+                        <Suspense fallback=|| view! { <div class="skeleton h-10 w-full"></div> }>
+                            {move || Suspend::new(async move {
+                                let liste = adressen.await.unwrap_or_default();
+                                view! { <AdresseAuswahl liste adresse_id/> }
+                            })}
+                        </Suspense>
                     </fieldset>
                     <fieldset class="fieldset">
                         <legend class="fieldset-legend">"Max. Teilnehmende"</legend>
                         <input class="input w-full" type="number" min="1" required bind:value=max_teilnehmer/>
                     </fieldset>
                 </div>
+                </fieldset>
 
                 <fieldset class="fieldset">
                     <legend class="fieldset-legend">
@@ -446,7 +496,7 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
                     <Suspense fallback=Laden>
                         {move || Suspend::new(async move {
                             let liste = mitarbeiter.await.unwrap_or_default();
-                            view! { <MitarbeiterAuswahl liste ausgewaehlt suche max_plaetze/> }
+                            view! { <MitarbeiterAuswahl liste ausgewaehlt suche max_plaetze gesperrt/> }
                         })}
                     </Suspense>
                 </fieldset>
@@ -458,7 +508,7 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
                         <Icon icon=icondata::LuX/>
                         "Abbrechen"
                     </button>
-                    <Show when=move || darf_anlegen.get()>
+                    <Show when=move || darf_anlegen.get() && !nur_teilnehmende.get()>
                         <button type="submit" class="btn btn-primary btn-soft"
                             title="Speichern und gleich einen weiteren Termin zum gleichen Kurs erfassen"
                             disabled=move || beschaeftigt.get()
@@ -525,6 +575,94 @@ fn StatusTimeline(status: RwSignal<TerminStatus>) -> impl IntoView {
     }
 }
 
+/// Suchfeld für den Veranstaltungsort. Beim Tippen erscheint eine Trefferliste;
+/// jedes Suchwort muss in Bezeichnung, Strasse, PLZ oder Ort vorkommen.
+#[component]
+fn AdresseAuswahl(liste: Vec<Adresse>, adresse_id: RwSignal<String>) -> impl IntoView {
+    let liste = StoredValue::new(liste);
+    let suche = RwSignal::new(String::new());
+    let offen = RwSignal::new(false);
+
+    let gewaehlt_text = move || {
+        let id = adresse_id.get();
+        liste.with_value(|l| l.iter().find(|a| a.id.to_string() == id).map(|a| a.anzeige()))
+    };
+    let treffer = move || {
+        let woerter: Vec<String> = suche.with(|s| s.to_lowercase().split_whitespace().map(String::from).collect());
+        liste.with_value(|l| {
+            l.iter()
+                .filter(|a| {
+                    let text = a.anzeige().to_lowercase();
+                    woerter.iter().all(|w| text.contains(w.as_str()))
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+    };
+    let waehlen = move |id: String| {
+        adresse_id.set(id);
+        suche.set(String::new());
+        offen.set(false);
+    };
+
+    view! {
+        <div class="relative">
+            <label class="input w-full">
+                <Icon icon=icondata::LuSearch attr:class="opacity-50"/>
+                <input
+                    type="search"
+                    class="grow"
+                    placeholder="Veranstaltungsort suchen …"
+                    autocomplete="off"
+                    // Geschlossen steht der gewählte Ort im Feld, beim Suchen der Suchtext
+                    prop:value=move || if offen.get() { suche.get() } else { gewaehlt_text().unwrap_or_default() }
+                    on:focus=move |_| { suche.set(String::new()); offen.set(true); }
+                    on:blur=move |_| offen.set(false)
+                    on:input:target=move |ev| { suche.set(ev.target().value()); offen.set(true); }
+                    on:keydown=move |ev| match ev.key().as_str() {
+                        // Enter übernimmt den ersten Treffer statt das Formular abzusenden
+                        "Enter" => {
+                            ev.prevent_default();
+                            if let Some(a) = treffer().first() { waehlen(a.id.to_string()); }
+                        }
+                        "Escape" => { ev.stop_propagation(); offen.set(false); }
+                        _ => {}
+                    }
+                />
+            </label>
+            <Show when=move || offen.get()>
+                // mousedown statt click, damit die Auswahl vor dem Blur des Feldes greift
+                <ul class="menu absolute z-10 mt-1 max-h-60 w-full flex-nowrap overflow-y-auto rounded-box border border-base-300 bg-base-100 p-1 shadow-lg">
+                    <li>
+                        <button type="button" class="text-base-content/60"
+                            on:mousedown=move |ev| { ev.prevent_default(); waehlen(String::new()); }>
+                            "Kein Veranstaltungsort"
+                        </button>
+                    </li>
+                    <For each=treffer key=|a| a.id let:a>
+                        {
+                            let id = a.id.to_string();
+                            let aktiv = { let id = id.clone(); move || adresse_id.get() == id };
+                            view! {
+                                <li>
+                                    <button type="button" class="flex flex-col items-start gap-0"
+                                        class:menu-active=aktiv
+                                        on:mousedown=move |ev| { ev.prevent_default(); waehlen(id.clone()); }>
+                                        <AdresseZeilen adresse=Some(a)/>
+                                    </button>
+                                </li>
+                            }
+                        }
+                    </For>
+                    <Show when=move || treffer().is_empty()>
+                        <li class="menu-disabled"><span>"Keine Treffer."</span></li>
+                    </Show>
+                </ul>
+            </Show>
+        </div>
+    }
+}
+
 /// Adresse dreizeilig: Firmenname/Name, Strasse, PLZ Ort.
 #[component]
 fn AdresseZeilen(adresse: Option<Adresse>) -> impl IntoView {
@@ -545,6 +683,8 @@ fn MitarbeiterAuswahl(
     ausgewaehlt: RwSignal<Vec<Uuid>>,
     suche: RwSignal<String>,
     max_plaetze: Signal<Option<usize>>,
+    /// Teilnehmende, die sich nicht entfernen lassen
+    gesperrt: Signal<Vec<Uuid>>,
 ) -> impl IntoView {
     if liste.is_empty() {
         return view! { <p class="p-2 text-base-content/60">"Noch keine Mitarbeiter erfasst."</p> }.into_any();
@@ -593,11 +733,13 @@ fn MitarbeiterAuswahl(
                 <For each=gewaehlte key=|m| m.id let:m>
                     <span class="badge badge-primary badge-soft gap-1 pr-1">
                         {m.name()}
-                        <button type="button" class="btn btn-ghost btn-xs btn-circle h-4 min-h-4 w-4"
-                            aria-label=format!("{} entfernen", m.name())
-                            on:click=move |_| umschalten(m.id, false)>
-                            <Icon icon=icondata::LuX width="0.75rem" height="0.75rem"/>
-                        </button>
+                        <Show when=move || gesperrt.with(|g| !g.contains(&m.id))>
+                            <button type="button" class="btn btn-ghost btn-xs btn-circle h-4 min-h-4 w-4"
+                                aria-label=format!("{} entfernen", m.name())
+                                on:click=move |_| umschalten(m.id, false)>
+                                <Icon icon=icondata::LuX width="0.75rem" height="0.75rem"/>
+                            </button>
+                        </Show>
                     </span>
                 </For>
             </div>
@@ -626,7 +768,10 @@ fn MitarbeiterAuswahl(
                 <label class="label w-full cursor-pointer rounded-field px-2 py-1.5 hover:bg-base-200">
                     <input type="checkbox" class="checkbox checkbox-sm checkbox-primary"
                         prop:checked=move || ausgewaehlt.with(|v| v.contains(&m.id))
-                        disabled=move || voll() && !ausgewaehlt.with(|v| v.contains(&m.id))
+                        disabled=move || {
+                            let gewaehlt = ausgewaehlt.with(|v| v.contains(&m.id));
+                            (voll() && !gewaehlt) || gesperrt.with(|g| g.contains(&m.id))
+                        }
                         on:change:target=move |ev| umschalten(m.id, ev.target().checked())/>
                     <span class="flex flex-col">
                         <span class="text-base-content">{m.name()}</span>
@@ -652,6 +797,7 @@ fn TeilnehmerPanel(
     schliessen: impl Fn() + Copy + 'static,
     bearbeiten: impl Fn(Termin) + Send + Sync + 'static,
     darf_bearbeiten: Recht,
+    darf_hinzufuegen: Recht,
 ) -> impl IntoView {
     let belegt = termin.mitarbeiter.len();
     let datum = termin.beginn.format(ANZEIGE_DATUM).to_string();
@@ -708,14 +854,17 @@ fn TeilnehmerPanel(
                     <Icon icon=icondata::LuFileText/>
                     "Als PDF"
                 </a>
-                <Show when=move || darf_bearbeiten.get()>
+                <Show when=move || darf_bearbeiten.get() || darf_hinzufuegen.get()>
                     <button class="btn btn-sm btn-ghost flex-1" on:click={
                         let bearbeiten = bearbeiten.clone();
                         let termin = zum_bearbeiten.clone();
                         move |_| bearbeiten(termin.clone())
                     }>
-                        <Icon icon=icondata::LuPencil/>
-                        "Bearbeiten"
+                        {move || if darf_bearbeiten.get() {
+                            view! { <Icon icon=icondata::LuPencil/> "Bearbeiten" }.into_any()
+                        } else {
+                            view! { <Icon icon=icondata::LuUserPlus/> "Teilnehmende hinzufügen" }.into_any()
+                        }}
                     </button>
                 </Show>
             </div>

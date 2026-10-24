@@ -340,8 +340,19 @@ pub async fn termine_laden() -> Result<Vec<Termin>, ServerFnError> {
 
 #[server(input = Json)]
 pub async fn termin_speichern(id: Option<Uuid>, eingabe: TerminEingabe) -> Result<(), ServerFnError> {
-    crate::backend::auth::server::recht_pflicht(&[(Bereich::Termine, if id.is_some() { Aktion::Bearbeiten } else { Aktion::Anlegen })]).await?;
     use crate::backend::db::{fehler, pool};
+
+    // Wer bestehende Termine nicht bearbeiten, aber Teilnehmende hinzufügen
+    // darf, ergänzt nur Teilnehmende; alle anderen Angaben bleiben unverändert.
+    let rechte: &[(Bereich, Aktion)] = if id.is_some() {
+        &[(Bereich::Termine, Aktion::Bearbeiten), (Bereich::Termine, Aktion::TeilnehmendeHinzufuegen)]
+    } else {
+        &[(Bereich::Termine, Aktion::Anlegen)]
+    };
+    let ich = crate::backend::auth::server::recht_pflicht(rechte).await?;
+    if let Some(id) = id.filter(|_| !ich.darf(Bereich::Termine, Aktion::Bearbeiten)) {
+        return teilnehmende_hinzufuegen(id, eingabe.mitarbeiter_ids).await;
+    }
 
     let beginn = hilfe::zeitpunkt(&eingabe.beginn, "Beginn")?;
     let ende = hilfe::zeitpunkt(&eingabe.ende, "Ende")?;
@@ -410,6 +421,44 @@ pub async fn termin_speichern(id: Option<Uuid>, eingabe: TerminEingabe) -> Resul
     .await
     .map_err(fehler)?;
 
+    tx.commit().await.map_err(fehler)?;
+    Ok(())
+}
+
+/// Fügt einem Termin Teilnehmende hinzu, ohne bestehende zu entfernen.
+#[cfg(feature = "ssr")]
+async fn teilnehmende_hinzufuegen(termin_id: Uuid, mitarbeiter_ids: Vec<Uuid>) -> Result<(), ServerFnError> {
+    use crate::backend::db::{fehler, pool};
+
+    let mut tx = pool().begin().await.map_err(fehler)?;
+    // Termin sperren, damit gleichzeitige Anmeldungen die Obergrenze nicht überschreiten
+    let max: Option<i32> = sqlx::query_scalar("SELECT max_teilnehmer FROM termin WHERE id = $1 FOR UPDATE")
+        .bind(termin_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(fehler)?;
+    let max = max.ok_or_else(|| ServerFnError::new("Den Termin gibt es nicht mehr."))?;
+
+    sqlx::query(
+        "INSERT INTO termin_mitarbeiter (termin_id, mitarbeiter_id)
+         SELECT $1, UNNEST($2::uuid[]) ON CONFLICT DO NOTHING",
+    )
+    .bind(termin_id)
+    .bind(mitarbeiter_ids)
+    .execute(&mut *tx)
+    .await
+    .map_err(fehler)?;
+
+    let belegt: i64 = sqlx::query_scalar("SELECT count(*) FROM termin_mitarbeiter WHERE termin_id = $1")
+        .bind(termin_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(fehler)?;
+    if belegt > max as i64 {
+        return Err(ServerFnError::new(format!(
+            "Der Termin hätte damit {belegt} Teilnehmende, erlaubt sind höchstens {max}."
+        )));
+    }
     tx.commit().await.map_err(fehler)?;
     Ok(())
 }

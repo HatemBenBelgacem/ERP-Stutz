@@ -342,7 +342,9 @@ impl Bereich {
             Bereich::Einkauf | Bereich::Lager | Bereich::Projekte | Bereich::Werkhof | Bereich::Finanzen => {
                 &[Aktion::Sehen]
             }
-            _ => &Aktion::ALLE,
+            // Bei Terminen lassen sich Teilnehmende auch ohne „Bearbeiten“ hinzufügen
+            Bereich::Termine => &Aktion::ALLE,
+            _ => &Aktion::STANDARD,
         }
     }
 }
@@ -354,10 +356,15 @@ pub enum Aktion {
     Anlegen,
     Bearbeiten,
     Loeschen,
+    /// Nur Teilnehmende zu einem Termin hinzufügen (sonst nichts ändern)
+    TeilnehmendeHinzufuegen,
 }
 
 impl Aktion {
-    pub const ALLE: [Aktion; 4] = [Aktion::Sehen, Aktion::Anlegen, Aktion::Bearbeiten, Aktion::Loeschen];
+    /// Funktionen, die es in jedem Bereich gibt
+    pub const STANDARD: [Aktion; 4] = [Aktion::Sehen, Aktion::Anlegen, Aktion::Bearbeiten, Aktion::Loeschen];
+    pub const ALLE: [Aktion; 5] =
+        [Aktion::Sehen, Aktion::Anlegen, Aktion::Bearbeiten, Aktion::Loeschen, Aktion::TeilnehmendeHinzufuegen];
 
     pub fn schluessel(self) -> &'static str {
         match self {
@@ -365,6 +372,7 @@ impl Aktion {
             Aktion::Anlegen => "anlegen",
             Aktion::Bearbeiten => "bearbeiten",
             Aktion::Loeschen => "loeschen",
+            Aktion::TeilnehmendeHinzufuegen => "teilnehmende_hinzufuegen",
         }
     }
 
@@ -374,6 +382,7 @@ impl Aktion {
             Aktion::Anlegen => "Anlegen",
             Aktion::Bearbeiten => "Bearbeiten",
             Aktion::Loeschen => "Löschen",
+            Aktion::TeilnehmendeHinzufuegen => "Teilnehmende hinzufügen",
         }
     }
 }
