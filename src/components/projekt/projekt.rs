@@ -50,15 +50,26 @@ pub fn BauobjektSeite() -> impl IntoView {
     let darf_bearbeiten = sitzung.recht(Bereich::Bauobjekte, Aktion::Bearbeiten);
     let darf_loeschen = sitzung.recht(Bereich::Bauobjekte, Aktion::Loeschen);
     let darf_projekt_anlegen = sitzung.recht(Bereich::Projekte, Aktion::Anlegen);
+    let darf_projekt_bearbeiten = sitzung.recht(Bereich::Projekte, Aktion::Bearbeiten);
+    let darf_projekt_loeschen = sitzung.recht(Bereich::Projekte, Aktion::Loeschen);
 
     let speichern = ServerAction::<BauobjektSpeichern>::new();
     let loeschen = ServerAction::<BauobjektLoeschen>::new();
-    // Neue Projekte ändern die Anzahl in der Liste
     let projekt_speichern = ServerAction::<ProjektSpeichern>::new();
-    let bauobjekte = Resource::new(
-        move || (speichern.version().get(), loeschen.version().get(), projekt_speichern.version().get()),
-        |_| bauobjekte_laden(),
-    );
+    let projekt_loeschen = ServerAction::<ProjektLoeschen>::new();
+    // Projekte ändern die Anzahl und die Liste unter jedem Bauobjekt
+    let neu_laden = move || {
+        (
+            speichern.version().get(),
+            loeschen.version().get(),
+            projekt_speichern.version().get(),
+            projekt_loeschen.version().get(),
+        )
+    };
+    let bauobjekte = Resource::new(neu_laden, |_| bauobjekte_laden());
+    let projekte = Resource::new(neu_laden, |_| projekte_laden());
+    // Bauobjekte, deren Projekte eingeklappt sind
+    let zugeklappt = RwSignal::new(Vec::<Uuid>::new());
     let adressen = Resource::new(move || speichern.version().get(), |_| adressen_laden());
 
     let dialog_offen = RwSignal::new(false);
@@ -80,6 +91,7 @@ pub fn BauobjektSeite() -> impl IntoView {
     };
     ergebnis_beobachten(speichern.value(), formular_meldung, move || dialog_offen.set(false));
     ergebnis_beobachten(loeschen.value(), listen_meldung, || {});
+    ergebnis_beobachten(projekt_loeschen.value(), listen_meldung, || {});
 
     let absenden = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
@@ -97,7 +109,7 @@ pub fn BauobjektSeite() -> impl IntoView {
     });
 
     view! {
-        <Seitenkopf titel="Bauobjekte" untertitel="Objekte mit Bauherr und Architekt">
+        <Seitenkopf titel="Bauobjekte" untertitel="Bauobjekte mit ihren Projekten">
             <Show when=move || darf_anlegen.get()>
                 <button class="btn btn-primary" on:click=move |_| oeffnen(None)>
                     <Icon icon=icondata::LuPlus/>
@@ -112,36 +124,56 @@ pub fn BauobjektSeite() -> impl IntoView {
             <div class="overflow-x-auto">
                 <Transition fallback=Laden>
                     {move || Suspend::new(async move {
+                        let alle_projekte = projekte.await.unwrap_or_default();
                         match bauobjekte.await {
                             Ok(liste) if liste.is_empty() => view! {
                                 <Leer symbol=icondata::LuBuilding2 text="Noch keine Bauobjekte erfasst."/>
                             }.into_any(),
                             Ok(liste) => view! {
-                                <table class="table table-zebra max-sm:table-sm">
+                                // Baum: Bauobjekt als Kopfzeile, seine Projekte eingerückt darunter
+                                <table class="table max-sm:table-sm">
                                     <thead>
                                         <tr>
-                                            <th>"Bezeichnung"</th>
+                                            <th>"Bauobjekt / Projekt"</th>
                                             <th class="hidden md:table-cell">"Bauherr"</th>
                                             <th class="hidden lg:table-cell">"Architekt"</th>
-                                            <th>"Projekte"</th>
                                             <th></th>
                                         </tr>
                                     </thead>
-                                    <tbody>
-                                        {liste.into_iter().map(|o| {
-                                            let id = o.id;
-                                            let fuer_doppelklick = o.clone();
-                                            let fuer_knopf = o.clone();
-                                            let fuer_projekt = o.clone();
-                                            view! {
-                                                <tr class="select-none hover:bg-base-300/60"
+                                    {liste.into_iter().map(|o| {
+                                        let id = o.id;
+                                        let fuer_doppelklick = o.clone();
+                                        let fuer_knopf = o.clone();
+                                        let fuer_projekt = o.clone();
+                                        let eigene: Vec<Projekt> = alle_projekte.iter().filter(|p| p.bauobjekt_id == id).cloned().collect();
+                                        let offen = move || zugeklappt.with(|z| !z.contains(&id));
+                                        let umschalten = move |_| zugeklappt.update(|z| {
+                                            if z.contains(&id) { z.retain(|x| *x != id) } else { z.push(id) }
+                                        });
+                                        view! {
+                                            <tbody class="border-b border-base-300 last:border-b-0">
+                                                <tr class="select-none bg-base-200/60 hover:bg-base-300/60"
                                                     class:cursor-pointer=move || darf_bearbeiten.get()
                                                     title=move || darf_bearbeiten.get().then_some("Doppelklick zum Bearbeiten")
                                                     on:dblclick=move |_| if darf_bearbeiten.get_untracked() { oeffnen(Some(fuer_doppelklick.clone())) }>
-                                                    <td class="font-medium">{o.bezeichnung}</td>
+                                                    <td>
+                                                        <div class="flex items-center gap-2">
+                                                            <button type="button" class="btn btn-ghost btn-xs btn-square"
+                                                                aria-label=move || if offen() { "Projekte einklappen" } else { "Projekte ausklappen" }
+                                                                aria-expanded=move || offen().to_string()
+                                                                on:dblclick=|ev| ev.stop_propagation()
+                                                                on:click=umschalten>
+                                                                <span class="transition-transform" class:-rotate-90=move || !offen()>
+                                                                    <Icon icon=icondata::LuChevronDown/>
+                                                                </span>
+                                                            </button>
+                                                            <Icon icon=icondata::LuBuilding2 attr:class="shrink-0 opacity-60"/>
+                                                            <span class="font-semibold">{o.bezeichnung}</span>
+                                                            <span class="badge badge-sm badge-ghost" title="Anzahl Projekte">{o.anzahl_projekte}</span>
+                                                        </div>
+                                                    </td>
                                                     <td class="hidden md:table-cell"><AdressZelle adresse=o.bauherr/></td>
                                                     <td class="hidden lg:table-cell"><AdressZelle adresse=o.architekt/></td>
-                                                    <td><span class="badge badge-ghost">{o.anzahl_projekte}</span></td>
                                                     <td>
                                                         <div class="flex justify-end gap-1">
                                                             <Show when=move || darf_projekt_anlegen.get()>
@@ -169,9 +201,24 @@ pub fn BauobjektSeite() -> impl IntoView {
                                                         </div>
                                                     </td>
                                                 </tr>
-                                            }
-                                        }).collect_view()}
-                                    </tbody>
+                                                <Show when=offen>
+                                                    {
+                                                        let eigene = eigene.clone();
+                                                        if eigene.is_empty() {
+                                                            view! {
+                                                                <tr><td colspan="4" class="pl-14 text-sm text-base-content/50">"Noch keine Projekte."</td></tr>
+                                                            }.into_any()
+                                                        } else {
+                                                            eigene.into_iter().map(|p| view! {
+                                                                <ProjektZeile projekt=p maske=projekt_maske loeschen=projekt_loeschen
+                                                                    darf_bearbeiten=darf_projekt_bearbeiten darf_loeschen=darf_projekt_loeschen/>
+                                                            }).collect_view().into_any()
+                                                        }
+                                                    }
+                                                </Show>
+                                            </tbody>
+                                        }
+                                    }).collect_view()}
                                 </table>
                             }.into_any(),
                             Err(e) => view! { <div class="alert alert-error m-4">{meldung_aus(e)}</div> }.into_any(),
@@ -271,54 +318,48 @@ pub fn ProjektSeite() -> impl IntoView {
                             Ok(liste) if liste.is_empty() => view! {
                                 <Leer symbol=icondata::LuFolderKanban text="Noch keine Projekte erfasst."/>
                             }.into_any(),
-                            Ok(liste) => view! {
-                                <table class="table table-zebra max-sm:table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>"Projekt"</th>
-                                            <th class="hidden sm:table-cell">"Bauobjekt"</th>
-                                            <th class="hidden md:table-cell">"Bauherr"</th>
-                                            <th class="hidden lg:table-cell">"Architekt"</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {liste.into_iter().map(|p| {
-                                            let id = p.id;
-                                            let fuer_doppelklick = p.clone();
-                                            let fuer_knopf = p.clone();
-                                            view! {
-                                                <tr class="select-none hover:bg-base-300/60"
-                                                    class:cursor-pointer=move || darf_bearbeiten.get()
-                                                    title=move || darf_bearbeiten.get().then_some("Doppelklick zum Bearbeiten")
-                                                    on:dblclick=move |_| if darf_bearbeiten.get_untracked() { maske.bearbeiten(fuer_doppelklick.clone()) }>
-                                                    <td>
-                                                        <div class="font-mono text-xs text-base-content/60">{p.projektnummer}</div>
-                                                        <div class="font-medium">{p.bezeichnung}</div>
-                                                        // Auf dem Smartphone steht das Bauobjekt darunter
-                                                        <div class="text-xs text-base-content/60 sm:hidden">{p.bauobjekt_bezeichnung.clone()}</div>
-                                                    </td>
-                                                    <td class="hidden sm:table-cell">{p.bauobjekt_bezeichnung}</td>
-                                                    <td class="hidden md:table-cell"><AdressZelle adresse=p.bauherr/></td>
-                                                    <td class="hidden lg:table-cell"><AdressZelle adresse=p.architekt/></td>
-                                                    <td>
-                                                        <ZeilenAktionen
-                                                            bearbeiten=move || maske.bearbeiten(fuer_knopf.clone())
-                                                            loeschen=move || {
-                                                                if bestaetigt("Projekt wirklich löschen?") {
-                                                                    loeschen.dispatch(ProjektLoeschen { id });
-                                                                }
-                                                            }
-                                                            darf_bearbeiten=move || darf_bearbeiten.get()
-                                                            darf_loeschen=move || darf_loeschen.get()
-                                                        />
+                            Ok(liste) => {
+                                // Nach Bauobjekt gruppieren (Reihenfolge: Bauobjekt, dann Projektnummer)
+                                let mut gruppen: Vec<(String, Vec<Projekt>)> = Vec::new();
+                                let mut sortiert = liste;
+                                sortiert.sort_by(|a, b| {
+                                    (&a.bauobjekt_bezeichnung, &a.projektnummer).cmp(&(&b.bauobjekt_bezeichnung, &b.projektnummer))
+                                });
+                                for p in sortiert {
+                                    match gruppen.last_mut() {
+                                        Some((name, projekte)) if *name == p.bauobjekt_bezeichnung => projekte.push(p),
+                                        _ => gruppen.push((p.bauobjekt_bezeichnung.clone(), vec![p])),
+                                    }
+                                }
+                                view! {
+                                    <table class="table max-sm:table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>"Bauobjekt / Projekt"</th>
+                                                <th class="hidden md:table-cell">"Bauherr"</th>
+                                                <th class="hidden lg:table-cell">"Architekt"</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        {gruppen.into_iter().map(|(objekt, projekte)| view! {
+                                            <tbody class="border-b border-base-300 last:border-b-0">
+                                                <tr class="bg-base-200/60">
+                                                    <td colspan="4">
+                                                        <div class="flex items-center gap-2">
+                                                            <Icon icon=icondata::LuBuilding2 attr:class="shrink-0 opacity-60"/>
+                                                            <span class="font-semibold">{objekt}</span>
+                                                            <span class="badge badge-sm badge-ghost">{projekte.len()}</span>
+                                                        </div>
                                                     </td>
                                                 </tr>
-                                            }
+                                                {projekte.into_iter().map(|p| view! {
+                                                    <ProjektZeile projekt=p maske loeschen darf_bearbeiten darf_loeschen/>
+                                                }).collect_view()}
+                                            </tbody>
                                         }).collect_view()}
-                                    </tbody>
-                                </table>
-                            }.into_any(),
+                                    </table>
+                                }.into_any()
+                            }
                             Err(e) => view! { <div class="alert alert-error m-4">{meldung_aus(e)}</div> }.into_any(),
                         }
                     })}
@@ -327,6 +368,50 @@ pub fn ProjektSeite() -> impl IntoView {
         </div>
 
         <ProjektDialog maske speichern/>
+    }
+}
+
+/// Ein Projekt als eingerückte Zeile unter seinem Bauobjekt.
+#[component]
+fn ProjektZeile(
+    projekt: Projekt,
+    maske: ProjektMaske,
+    loeschen: ServerAction<ProjektLoeschen>,
+    darf_bearbeiten: crate::app::Recht,
+    darf_loeschen: crate::app::Recht,
+) -> impl IntoView {
+    let id = projekt.id;
+    let fuer_doppelklick = projekt.clone();
+    let fuer_knopf = projekt.clone();
+    view! {
+        <tr class="select-none hover:bg-base-300/60"
+            class:cursor-pointer=move || darf_bearbeiten.get()
+            title=move || darf_bearbeiten.get().then_some("Doppelklick zum Bearbeiten")
+            on:dblclick=move |_| if darf_bearbeiten.get_untracked() { maske.bearbeiten(fuer_doppelklick.clone()) }>
+            <td>
+                <div class="flex items-start gap-2 pl-8">
+                    <Icon icon=icondata::LuCornerDownRight attr:class="mt-1 shrink-0 opacity-40"/>
+                    <div>
+                        <div class="font-mono text-xs text-base-content/60">{projekt.projektnummer}</div>
+                        <div class="font-medium">{projekt.bezeichnung}</div>
+                    </div>
+                </div>
+            </td>
+            <td class="hidden md:table-cell"><AdressZelle adresse=projekt.bauherr/></td>
+            <td class="hidden lg:table-cell"><AdressZelle adresse=projekt.architekt/></td>
+            <td>
+                <ZeilenAktionen
+                    bearbeiten=move || maske.bearbeiten(fuer_knopf.clone())
+                    loeschen=move || {
+                        if bestaetigt("Projekt wirklich löschen?") {
+                            loeschen.dispatch(ProjektLoeschen { id });
+                        }
+                    }
+                    darf_bearbeiten=move || darf_bearbeiten.get()
+                    darf_loeschen=move || darf_loeschen.get()
+                />
+            </td>
+        </tr>
     }
 }
 
