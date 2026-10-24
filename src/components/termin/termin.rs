@@ -625,7 +625,7 @@ fn StatusTimeline(status: RwSignal<TerminStatus>) -> impl IntoView {
 /// Suchfeld für den Veranstaltungsort. Beim Tippen erscheint eine Trefferliste;
 /// jedes Suchwort muss in Bezeichnung, Strasse, PLZ oder Ort vorkommen.
 #[component]
-fn AdresseAuswahl(liste: Vec<Adresse>, adresse_id: RwSignal<String>) -> impl IntoView {
+pub(crate) fn AdresseAuswahl(liste: Vec<Adresse>, adresse_id: RwSignal<String>) -> impl IntoView {
     let liste = StoredValue::new(liste);
     let suche = RwSignal::new(String::new());
     let offen = RwSignal::new(false);

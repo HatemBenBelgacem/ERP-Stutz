@@ -11,6 +11,7 @@ pub mod kurs;
 pub mod layout;
 pub mod mitarbeiter;
 pub mod modul;
+pub mod projekt;
 pub mod rolle;
 pub mod termin;
 pub mod termin_anmeldung;

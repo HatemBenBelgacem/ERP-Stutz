@@ -15,6 +15,7 @@ use crate::components::kurs::KursSeite;
 use crate::components::layout::Layout;
 use crate::components::mitarbeiter::MitarbeiterSeite;
 use crate::components::modul::ModulSeite;
+use crate::components::projekt::{BauobjektSeite, ProjektSeite, ProjekteSeite, ProjekteStart};
 use crate::components::rolle::RollenSeite;
 use crate::components::termin::TerminSeite;
 use crate::components::termin_anmeldung::TerminAnmeldungSeite;
@@ -174,10 +175,17 @@ pub fn App() -> impl IntoView {
                         path=StaticSegment("lager")
                         view=|| view! { <Bereichsschutz bereich=Bereich::Lager><ModulSeite bereich=Bereich::Lager/></Bereichsschutz> }
                     />
-                    <Route
-                        path=StaticSegment("projekte")
-                        view=|| view! { <Bereichsschutz bereich=Bereich::Projekte><ModulSeite bereich=Bereich::Projekte/></Bereichsschutz> }
-                    />
+                    <ParentRoute path=StaticSegment("projekte") view=ProjekteSeite>
+                        <Route path=StaticSegment("") view=ProjekteStart/>
+                        <Route
+                            path=StaticSegment("liste")
+                            view=|| view! { <Bereichsschutz bereich=Bereich::Projekte><ProjektSeite/></Bereichsschutz> }
+                        />
+                        <Route
+                            path=StaticSegment("bauobjekte")
+                            view=|| view! { <Bereichsschutz bereich=Bereich::Bauobjekte><BauobjektSeite/></Bereichsschutz> }
+                        />
+                    </ParentRoute>
                     <Route
                         path=StaticSegment("werkhof")
                         view=|| view! { <Bereichsschutz bereich=Bereich::Werkhof><ModulSeite bereich=Bereich::Werkhof/></Bereichsschutz> }

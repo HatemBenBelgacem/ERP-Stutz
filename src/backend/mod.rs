@@ -2,6 +2,7 @@
 
 pub mod api;
 pub mod auth;
+pub mod projekte;
 pub mod rollen;
 
 #[cfg(feature = "ssr")]

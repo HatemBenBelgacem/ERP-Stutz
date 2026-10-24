@@ -34,7 +34,8 @@ const NAVIGATION: [(Option<(&str, icondata::Icon)>, &[Ziel]); 2] = [
             Ziel { text: "Adressen", href: "/adressen", icon: icondata::LuMapPin, bereiche: &[Bereich::Adressen] },
             Ziel { text: "Einkauf", href: "/einkauf", icon: icondata::LuShoppingCart, bereiche: &[Bereich::Einkauf] },
             Ziel { text: "Lager", href: "/lager", icon: icondata::LuWarehouse, bereiche: &[Bereich::Lager] },
-            Ziel { text: "Projekte", href: "/projekte", icon: icondata::LuConstruction, bereiche: &[Bereich::Projekte] },
+            // Projekte und Bauobjekte als Reiter
+            Ziel { text: "Projekte", href: "/projekte", icon: icondata::LuConstruction, bereiche: &Bereich::PROJEKTE },
             Ziel { text: "Werkhof", href: "/werkhof", icon: icondata::LuTruck, bereiche: &[Bereich::Werkhof] },
             Ziel { text: "Finanzen", href: "/finanzen", icon: icondata::LuWallet, bereiche: &[Bereich::Finanzen] },
         ],

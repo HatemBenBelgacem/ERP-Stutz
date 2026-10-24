@@ -47,6 +47,14 @@ pub fn fehler(e: sqlx::Error) -> ServerFnError {
             Some("23505") if db.constraint() == Some("rolle_name_key") => {
                 return ServerFnError::new("Eine Rolle mit diesem Namen gibt es bereits.");
             }
+            Some("23505") if db.constraint() == Some("projekt_projektnummer_key") => {
+                return ServerFnError::new("Ein Projekt mit dieser Projektnummer gibt es bereits.");
+            }
+            Some("23503") if db.constraint() == Some("projekt_bauobjekt_id_fkey") => {
+                return ServerFnError::new(
+                    "Das Bauobjekt kann nicht gelöscht werden, solange noch Projekte dazu existieren.",
+                );
+            }
             Some("23514") => {
                 return ServerFnError::new("Die Eingaben verletzen eine Prüfregel der Datenbank.");
             }

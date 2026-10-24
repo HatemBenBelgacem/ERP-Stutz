@@ -65,6 +65,48 @@ impl Mitarbeiter {
     }
 }
 
+/// Bauobjekt mit Bauherr und Architekt (je eine Adresse, N:1).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Bauobjekt {
+    pub id: Uuid,
+    pub bezeichnung: String,
+    pub bauherr: Option<Adresse>,
+    pub architekt: Option<Adresse>,
+    /// Anzahl Projekte zu diesem Bauobjekt (1:N)
+    pub anzahl_projekte: i64,
+}
+
+/// Eingabedaten aus dem Formular für Bauobjekte.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BauobjektEingabe {
+    pub bezeichnung: String,
+    pub bauherr_id: Option<Uuid>,
+    pub architekt_id: Option<Uuid>,
+}
+
+/// Projekt eines Bauobjekts. Bauherr und Architekt kommen beim Anlegen vom
+/// Bauobjekt und lassen sich danach anpassen.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Projekt {
+    pub id: Uuid,
+    pub projektnummer: String,
+    pub bezeichnung: String,
+    pub bauobjekt_id: Uuid,
+    pub bauobjekt_bezeichnung: String,
+    pub bauherr: Option<Adresse>,
+    pub architekt: Option<Adresse>,
+}
+
+/// Eingabedaten aus dem Formular für Projekte.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProjektEingabe {
+    pub projektnummer: String,
+    pub bezeichnung: String,
+    pub bauobjekt_id: Uuid,
+    pub bauherr_id: Option<Uuid>,
+    pub architekt_id: Option<Uuid>,
+}
+
 /// Termin inkl. zugehörigem Kurs (N:1), Adresse (N:1) und Teilnehmenden (M:N).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Termin {
@@ -238,6 +280,7 @@ pub enum Bereich {
     Einkauf,
     Lager,
     Projekte,
+    Bauobjekte,
     Werkhof,
     Finanzen,
     Benutzer,
@@ -249,7 +292,9 @@ impl Bereich {
     pub const PERSONAL: [Bereich; 4] = [Bereich::Termine, Bereich::Kurse, Bereich::Anmeldung, Bereich::Mitarbeiter];
     /// Reiter unter „Personal › Weiterbildung“
     pub const WEITERBILDUNG: [Bereich; 3] = [Bereich::Termine, Bereich::Kurse, Bereich::Anmeldung];
-    pub const HAUPTBEREICHE: [Bereich; 10] = [
+    /// Reiter unter „Projekte“
+    pub const PROJEKTE: [Bereich; 2] = [Bereich::Projekte, Bereich::Bauobjekte];
+    pub const HAUPTBEREICHE: [Bereich; 11] = [
         Bereich::Termine,
         Bereich::Kurse,
         Bereich::Anmeldung,
@@ -258,11 +303,12 @@ impl Bereich {
         Bereich::Einkauf,
         Bereich::Lager,
         Bereich::Projekte,
+        Bereich::Bauobjekte,
         Bereich::Werkhof,
         Bereich::Finanzen,
     ];
     pub const EINSTELLUNGEN: [Bereich; 3] = [Bereich::Benutzer, Bereich::Rollen, Bereich::Geschaeftsbereiche];
-    pub const ALLE: [Bereich; 13] = [
+    pub const ALLE: [Bereich; 14] = [
         Bereich::Termine,
         Bereich::Kurse,
         Bereich::Anmeldung,
@@ -271,6 +317,7 @@ impl Bereich {
         Bereich::Einkauf,
         Bereich::Lager,
         Bereich::Projekte,
+        Bereich::Bauobjekte,
         Bereich::Werkhof,
         Bereich::Finanzen,
         Bereich::Benutzer,
@@ -290,6 +337,7 @@ impl Bereich {
             Bereich::Einkauf => "einkauf",
             Bereich::Lager => "lager",
             Bereich::Projekte => "projekte",
+            Bereich::Bauobjekte => "bauobjekte",
             Bereich::Werkhof => "werkhof",
             Bereich::Finanzen => "finanzen",
             Bereich::Benutzer => "benutzer",
@@ -308,6 +356,7 @@ impl Bereich {
             Bereich::Einkauf => "Einkauf",
             Bereich::Lager => "Lager",
             Bereich::Projekte => "Projekte",
+            Bereich::Bauobjekte => "Bauobjekte",
             Bereich::Werkhof => "Werkhof",
             Bereich::Finanzen => "Finanzen",
             Bereich::Benutzer => "Benutzer",
@@ -325,7 +374,8 @@ impl Bereich {
             Bereich::Adressen => "/adressen",
             Bereich::Einkauf => "/einkauf",
             Bereich::Lager => "/lager",
-            Bereich::Projekte => "/projekte",
+            Bereich::Projekte => "/projekte/liste",
+            Bereich::Bauobjekte => "/projekte/bauobjekte",
             Bereich::Werkhof => "/werkhof",
             Bereich::Finanzen => "/finanzen",
             Bereich::Benutzer => "/einstellungen/benutzer",
@@ -337,6 +387,8 @@ impl Bereich {
     pub fn gruppe(self) -> Option<&'static str> {
         if Bereich::PERSONAL.contains(&self) {
             Some("Personal")
+        } else if Bereich::PROJEKTE.contains(&self) {
+            Some("Projekte")
         } else if Bereich::EINSTELLUNGEN.contains(&self) {
             Some("Einstellungen")
         } else {
@@ -348,7 +400,7 @@ impl Bereich {
     pub fn aktionen(self) -> &'static [Aktion] {
         match self {
             // Noch ohne Inhalte, daher nur sichtbar schalten
-            Bereich::Einkauf | Bereich::Lager | Bereich::Projekte | Bereich::Werkhof | Bereich::Finanzen => {
+            Bereich::Einkauf | Bereich::Lager | Bereich::Werkhof | Bereich::Finanzen => {
                 &[Aktion::Sehen]
             }
             // Bei Terminen lassen sich Teilnehmende auch ohne „Bearbeiten“ ändern

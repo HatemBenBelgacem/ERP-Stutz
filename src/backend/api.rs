@@ -157,7 +157,13 @@ pub async fn geschaeftsbereich_loeschen(id: Uuid) -> Result<(), ServerFnError> {
 
 #[server(input = Json)]
 pub async fn adressen_laden() -> Result<Vec<Adresse>, ServerFnError> {
-    crate::backend::auth::server::recht_pflicht(&[(Bereich::Adressen, Aktion::Sehen), (Bereich::Termine, Aktion::Sehen)]).await?;
+    crate::backend::auth::server::recht_pflicht(&[
+        (Bereich::Adressen, Aktion::Sehen),
+        (Bereich::Termine, Aktion::Sehen),
+        (Bereich::Bauobjekte, Aktion::Sehen),
+        (Bereich::Projekte, Aktion::Sehen),
+    ])
+    .await?;
     use crate::backend::db::{fehler, pool};
     sqlx::query_as("SELECT id, bezeichnung, strasse, plz, ort FROM adresse ORDER BY bezeichnung, ort")
         .fetch_all(pool())
