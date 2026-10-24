@@ -60,6 +60,9 @@ panic = "abort"
 
 [package.metadata.leptos]
 output-name = "erp-stutz"
+# Dateinamen mit Fingerabdruck (z. B. erp-stutz.a1b2c3.wasm), damit Browser
+# nach einem Deploy nicht die alte App aus dem Cache verwenden
+hash-files = true
 site-root = "target/site"
 site-pkg-dir = "pkg"
 # cargo-leptos kompiliert Tailwind (inkl. DaisyUI-Plugin) automatisch bei build/watch

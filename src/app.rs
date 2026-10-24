@@ -1,5 +1,5 @@
 use leptos::prelude::*;
-use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
+use leptos_meta::{HashedStylesheet, MetaTags, Title, provide_meta_context};
 use leptos_router::StaticSegment;
 use leptos_router::components::{Outlet, ParentRoute, ProtectedParentRoute, Redirect, Route, Router, Routes};
 
@@ -29,6 +29,8 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <AutoReload options=options.clone()/>
+                // CSS mit Fingerabdruck im Dateinamen (siehe hash-files in Cargo.toml)
+                <HashedStylesheet options=options.clone() id="leptos"/>
                 <HydrationScripts options/>
                 <MetaTags/>
             </head>
@@ -123,7 +125,6 @@ pub fn App() -> impl IntoView {
     provide_context(sitzung);
 
     view! {
-        <Stylesheet id="leptos" href="/pkg/erp-stutz.css"/>
         <Title text="ERP-Stutz AG"/>
         <Router>
             <Routes fallback=|| view! { <Leer symbol=icondata::LuHardHat text="Seite nicht gefunden."/> }>

@@ -32,6 +32,8 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY --from=builder /app/target/release/erp-stutz /app/erp-stutz
+# Fingerabdrücke der Dateien in /app/site/pkg; Leptos liest sie neben dem Binary
+COPY --from=builder /app/target/release/hash.txt /app/hash.txt
 COPY --from=builder /app/target/site /app/site
 COPY --from=builder /app/Cargo.toml /app/Cargo.toml
 
@@ -40,6 +42,7 @@ ENV LEPTOS_OUTPUT_NAME=erp-stutz \
     LEPTOS_SITE_PKG_DIR=pkg \
     LEPTOS_SITE_ADDR=0.0.0.0:8080 \
     LEPTOS_ENV=PROD \
+    LEPTOS_HASH_FILES=true \
     RUST_LOG=info
 
 EXPOSE 8080
