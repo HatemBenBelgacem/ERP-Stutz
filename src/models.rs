@@ -348,10 +348,10 @@ impl Bereich {
             Bereich::Einkauf | Bereich::Lager | Bereich::Projekte | Bereich::Werkhof | Bereich::Finanzen => {
                 &[Aktion::Sehen]
             }
-            // Bei Terminen lassen sich Teilnehmende auch ohne „Bearbeiten“ hinzufügen
+            // Bei Terminen lassen sich Teilnehmende auch ohne „Bearbeiten“ ändern
             Bereich::Termine => &Aktion::ALLE,
-            // Anmeldung: aktive Termine sehen und Mitarbeitende anmelden
-            Bereich::Anmeldung => &[Aktion::Sehen, Aktion::TeilnehmendeHinzufuegen],
+            // Anmeldung: aktive Termine sehen und Teilnehmende an- und abmelden
+            Bereich::Anmeldung => &[Aktion::Sehen, Aktion::TeilnehmendeBearbeiten],
             _ => &Aktion::STANDARD,
         }
     }
@@ -364,15 +364,15 @@ pub enum Aktion {
     Anlegen,
     Bearbeiten,
     Loeschen,
-    /// Nur Teilnehmende zu einem Termin hinzufügen (sonst nichts ändern)
-    TeilnehmendeHinzufuegen,
+    /// Teilnehmende eines Termins hinzufügen und entfernen (sonst nichts ändern)
+    TeilnehmendeBearbeiten,
 }
 
 impl Aktion {
     /// Funktionen, die es in jedem Bereich gibt
     pub const STANDARD: [Aktion; 4] = [Aktion::Sehen, Aktion::Anlegen, Aktion::Bearbeiten, Aktion::Loeschen];
     pub const ALLE: [Aktion; 5] =
-        [Aktion::Sehen, Aktion::Anlegen, Aktion::Bearbeiten, Aktion::Loeschen, Aktion::TeilnehmendeHinzufuegen];
+        [Aktion::Sehen, Aktion::Anlegen, Aktion::Bearbeiten, Aktion::Loeschen, Aktion::TeilnehmendeBearbeiten];
 
     pub fn schluessel(self) -> &'static str {
         match self {
@@ -380,7 +380,7 @@ impl Aktion {
             Aktion::Anlegen => "anlegen",
             Aktion::Bearbeiten => "bearbeiten",
             Aktion::Loeschen => "loeschen",
-            Aktion::TeilnehmendeHinzufuegen => "teilnehmende_hinzufuegen",
+            Aktion::TeilnehmendeBearbeiten => "teilnehmende_bearbeiten",
         }
     }
 
@@ -390,7 +390,7 @@ impl Aktion {
             Aktion::Anlegen => "Anlegen",
             Aktion::Bearbeiten => "Bearbeiten",
             Aktion::Loeschen => "Löschen",
-            Aktion::TeilnehmendeHinzufuegen => "Teilnehmende hinzufügen",
+            Aktion::TeilnehmendeBearbeiten => "Teilnehmende bearbeiten",
         }
     }
 }

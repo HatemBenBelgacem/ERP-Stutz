@@ -3,25 +3,25 @@ use leptos_icons::Icon;
 use uuid::Uuid;
 
 use crate::app::use_sitzung;
-use crate::backend::api::{TeilnehmendeAnmelden, aktive_termine_laden, mitarbeiter_laden};
+use crate::backend::api::{TeilnehmendeSpeichern, aktive_termine_laden, mitarbeiter_laden};
 use crate::components::gemeinsam::{
     Dialog, DialogAktionen, Fehlermeldung, Laden, Leer, Seitenkopf, ergebnis_beobachten, meldung_aus,
 };
 use crate::components::termin::{ANZEIGE_DATUM, ANZEIGE_ZEIT, AdresseZeilen, MitarbeiterAuswahl};
 use crate::models::{Aktion, Bereich, Termin};
 
-/// Aktive Termine als Kacheln. Hier lassen sich nur Mitarbeitende anmelden;
-/// alles andere am Termin bleibt unverändert.
+/// Aktive Termine als Kacheln. Hier lassen sich nur Teilnehmende an- und
+/// abmelden; alles andere am Termin bleibt unverändert.
 #[component]
 pub fn TerminAnmeldungSeite() -> impl IntoView {
     let sitzung = use_sitzung();
-    let darf_anmelden = sitzung.recht(Bereich::Anmeldung, Aktion::TeilnehmendeHinzufuegen);
-    let darf_termine_anmelden = sitzung.recht(Bereich::Termine, Aktion::TeilnehmendeHinzufuegen);
+    let darf_anmelden = sitzung.recht(Bereich::Anmeldung, Aktion::TeilnehmendeBearbeiten);
+    let darf_termine_anmelden = sitzung.recht(Bereich::Termine, Aktion::TeilnehmendeBearbeiten);
     let darf_termine_bearbeiten = sitzung.recht(Bereich::Termine, Aktion::Bearbeiten);
     let kann_anmelden =
         move || darf_anmelden.get() || darf_termine_anmelden.get() || darf_termine_bearbeiten.get();
 
-    let anmelden = ServerAction::<TeilnehmendeAnmelden>::new();
+    let anmelden = ServerAction::<TeilnehmendeSpeichern>::new();
     let termine = Resource::new(move || anmelden.version().get(), |_| aktive_termine_laden());
 
     // Termin, für den der Anmelde-Dialog offen ist
@@ -33,7 +33,7 @@ pub fn TerminAnmeldungSeite() -> impl IntoView {
     };
 
     view! {
-        <Seitenkopf titel="Anmeldung" untertitel="Aktive Termine – Mitarbeitende anmelden">
+        <Seitenkopf titel="Anmeldung" untertitel="Aktive Termine – Teilnehmende an- und abmelden">
             {()}
         </Seitenkopf>
 
@@ -127,15 +127,16 @@ fn TerminKachel(
                 </div>
 
                 <Show when=move || kann_anmelden.get()>
+                    // Auch bei vollem Termin offen, damit sich Teilnehmende abmelden lassen
                     <button class="btn btn-primary btn-sm"
-                        disabled=voll
-                        title=if voll { "Dieser Termin ist ausgebucht" } else { "Mitarbeitende anmelden" }
+                        class:btn-soft=voll
+                        title=if voll { "Ausgebucht – Teilnehmende abmelden oder tauschen" } else { "Teilnehmende an- und abmelden" }
                         on:click={
                             let termin = termin.clone();
                             move |_| oeffnen(termin.clone())
                         }>
-                        <Icon icon=icondata::LuUserPlus/>
-                        "Mitarbeitende anmelden"
+                        <Icon icon=icondata::LuUserPen/>
+                        "Teilnehmende bearbeiten"
                     </button>
                 </Show>
             </div>
@@ -143,26 +144,22 @@ fn TerminKachel(
     }
 }
 
-/// Auswahl der Mitarbeitenden für einen Termin. Bisherige Teilnehmende
-/// sind gesetzt und lassen sich hier nicht entfernen.
+/// Auswahl der Teilnehmenden eines Termins: hinzufügen und entfernen.
 #[component]
 fn AnmeldeDialog(
     offen: RwSignal<bool>,
     termin: RwSignal<Option<Termin>>,
-    anmelden: ServerAction<TeilnehmendeAnmelden>,
+    anmelden: ServerAction<TeilnehmendeSpeichern>,
 ) -> impl IntoView {
     let mitarbeiter = Resource::new(|| (), |_| mitarbeiter_laden());
     let ausgewaehlt = RwSignal::new(Vec::<Uuid>::new());
-    let bestehend = RwSignal::new(Vec::<Uuid>::new());
     let suche = RwSignal::new(String::new());
     let meldung = RwSignal::new(None::<String>);
 
     // Beim Öffnen die bisherigen Teilnehmenden übernehmen
     Effect::new(move |_| {
         if let Some(t) = termin.get() {
-            let ids: Vec<Uuid> = t.mitarbeiter.iter().map(|m| m.id).collect();
-            bestehend.set(ids.clone());
-            ausgewaehlt.set(ids);
+            ausgewaehlt.set(t.mitarbeiter.iter().map(|m| m.id).collect());
             suche.set(String::new());
             meldung.set(None);
         }
@@ -170,7 +167,6 @@ fn AnmeldeDialog(
     ergebnis_beobachten(anmelden.value(), meldung, move || offen.set(false));
 
     let max_plaetze = Signal::derive(move || termin.with(|t| t.as_ref().map(|t| t.max_teilnehmer.max(0) as usize)));
-    let gesperrt = Signal::derive(move || bestehend.get());
     let titel = Signal::derive(move || {
         termin.with(|t| {
             t.as_ref()
@@ -182,13 +178,7 @@ fn AnmeldeDialog(
     let absenden = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         let Some(t) = termin.get_untracked() else { return };
-        let bisher = bestehend.get_untracked();
-        let neu: Vec<Uuid> = ausgewaehlt.get_untracked().into_iter().filter(|id| !bisher.contains(id)).collect();
-        if neu.is_empty() {
-            meldung.set(Some("Bitte mindestens eine Person auswählen.".into()));
-            return;
-        }
-        anmelden.dispatch(TeilnehmendeAnmelden { termin_id: t.id, mitarbeiter_ids: neu });
+        anmelden.dispatch(TeilnehmendeSpeichern { termin_id: t.id, mitarbeiter_ids: ausgewaehlt.get_untracked() });
     };
 
     view! {
@@ -205,7 +195,7 @@ fn AnmeldeDialog(
                     <Suspense fallback=Laden>
                         {move || Suspend::new(async move {
                             let liste = mitarbeiter.await.unwrap_or_default();
-                            view! { <MitarbeiterAuswahl liste ausgewaehlt suche max_plaetze gesperrt/> }
+                            view! { <MitarbeiterAuswahl liste ausgewaehlt suche max_plaetze/> }
                         })}
                     </Suspense>
                 </fieldset>

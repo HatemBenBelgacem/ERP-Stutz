@@ -284,17 +284,17 @@ pub async fn aktive_termine_laden() -> Result<Vec<Termin>, ServerFnError> {
     termine_abfragen(true).await
 }
 
-/// Mitarbeitende zu einem Termin anmelden. Bisherige Teilnehmende bleiben,
-/// alle anderen Angaben zum Termin auch.
+/// Teilnehmende eines Termins festlegen (hinzufügen und entfernen); alle
+/// anderen Angaben zum Termin bleiben unverändert.
 #[server(input = Json)]
-pub async fn teilnehmende_anmelden(termin_id: Uuid, mitarbeiter_ids: Vec<Uuid>) -> Result<(), ServerFnError> {
+pub async fn teilnehmende_speichern(termin_id: Uuid, mitarbeiter_ids: Vec<Uuid>) -> Result<(), ServerFnError> {
     crate::backend::auth::server::recht_pflicht(&[
-        (Bereich::Anmeldung, Aktion::TeilnehmendeHinzufuegen),
-        (Bereich::Termine, Aktion::TeilnehmendeHinzufuegen),
+        (Bereich::Anmeldung, Aktion::TeilnehmendeBearbeiten),
+        (Bereich::Termine, Aktion::TeilnehmendeBearbeiten),
         (Bereich::Termine, Aktion::Bearbeiten),
     ])
     .await?;
-    teilnehmende_hinzufuegen(termin_id, mitarbeiter_ids).await
+    teilnehmende_setzen(termin_id, mitarbeiter_ids).await
 }
 
 #[cfg(feature = "ssr")]
@@ -369,16 +369,16 @@ async fn termine_abfragen(nur_aktive: bool) -> Result<Vec<Termin>, ServerFnError
 pub async fn termin_speichern(id: Option<Uuid>, eingabe: TerminEingabe) -> Result<(), ServerFnError> {
     use crate::backend::db::{fehler, pool};
 
-    // Wer bestehende Termine nicht bearbeiten, aber Teilnehmende hinzufügen
-    // darf, ergänzt nur Teilnehmende; alle anderen Angaben bleiben unverändert.
+    // Wer bestehende Termine nicht bearbeiten, aber Teilnehmende bearbeiten
+    // darf, ändert nur die Teilnehmenden; alle anderen Angaben bleiben unverändert.
     let rechte: &[(Bereich, Aktion)] = if id.is_some() {
-        &[(Bereich::Termine, Aktion::Bearbeiten), (Bereich::Termine, Aktion::TeilnehmendeHinzufuegen)]
+        &[(Bereich::Termine, Aktion::Bearbeiten), (Bereich::Termine, Aktion::TeilnehmendeBearbeiten)]
     } else {
         &[(Bereich::Termine, Aktion::Anlegen)]
     };
     let ich = crate::backend::auth::server::recht_pflicht(rechte).await?;
     if let Some(id) = id.filter(|_| !ich.darf(Bereich::Termine, Aktion::Bearbeiten)) {
-        return teilnehmende_hinzufuegen(id, eingabe.mitarbeiter_ids).await;
+        return teilnehmende_setzen(id, eingabe.mitarbeiter_ids).await;
     }
 
     let beginn = hilfe::zeitpunkt(&eingabe.beginn, "Beginn")?;
@@ -452,9 +452,9 @@ pub async fn termin_speichern(id: Option<Uuid>, eingabe: TerminEingabe) -> Resul
     Ok(())
 }
 
-/// Fügt einem Termin Teilnehmende hinzu, ohne bestehende zu entfernen.
+/// Setzt die Teilnehmenden eines Termins auf genau diese Liste.
 #[cfg(feature = "ssr")]
-async fn teilnehmende_hinzufuegen(termin_id: Uuid, mitarbeiter_ids: Vec<Uuid>) -> Result<(), ServerFnError> {
+async fn teilnehmende_setzen(termin_id: Uuid, mitarbeiter_ids: Vec<Uuid>) -> Result<(), ServerFnError> {
     use crate::backend::db::{fehler, pool};
 
     let mut tx = pool().begin().await.map_err(fehler)?;
@@ -466,12 +466,19 @@ async fn teilnehmende_hinzufuegen(termin_id: Uuid, mitarbeiter_ids: Vec<Uuid>) -
         .map_err(fehler)?;
     let max = max.ok_or_else(|| ServerFnError::new("Den Termin gibt es nicht mehr."))?;
 
+    // Abgewählte entfernen, neu Gewählte hinzufügen
+    sqlx::query("DELETE FROM termin_mitarbeiter WHERE termin_id = $1 AND NOT (mitarbeiter_id = ANY($2))")
+        .bind(termin_id)
+        .bind(&mitarbeiter_ids)
+        .execute(&mut *tx)
+        .await
+        .map_err(fehler)?;
     sqlx::query(
         "INSERT INTO termin_mitarbeiter (termin_id, mitarbeiter_id)
          SELECT $1, UNNEST($2::uuid[]) ON CONFLICT DO NOTHING",
     )
     .bind(termin_id)
-    .bind(mitarbeiter_ids)
+    .bind(&mitarbeiter_ids)
     .execute(&mut *tx)
     .await
     .map_err(fehler)?;

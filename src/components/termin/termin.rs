@@ -36,10 +36,8 @@ pub struct TerminMaske {
     hinweis: RwSignal<Option<String>>,
     /// Nach dem Speichern gleich den nächsten Termin zum gleichen Kurs erfassen
     weiterer: RwSignal<bool>,
-    /// Nur Teilnehmende hinzufügen; alles andere ist gesperrt
+    /// Nur Teilnehmende bearbeiten; alles andere ist gesperrt
     nur_teilnehmende: RwSignal<bool>,
-    /// Teilnehmende beim Öffnen; im Modus `nur_teilnehmende` nicht entfernbar
-    bestehend: RwSignal<Vec<Uuid>>,
 }
 
 impl Default for TerminMaske {
@@ -65,7 +63,6 @@ impl TerminMaske {
             hinweis: RwSignal::new(None),
             weiterer: RwSignal::new(false),
             nur_teilnehmende: RwSignal::new(false),
-            bestehend: RwSignal::new(Vec::new()),
         }
     }
 
@@ -87,15 +84,13 @@ impl TerminMaske {
         self.adresse_id.set(t.adresse.map(|a| a.id.to_string()).unwrap_or_default());
         self.max_teilnehmer.set(t.max_teilnehmer.to_string());
         self.status.set(t.status);
-        let ids: Vec<Uuid> = t.mitarbeiter.iter().map(|m| m.id).collect();
-        self.bestehend.set(ids.clone());
-        self.ausgewaehlt.set(ids);
+        self.ausgewaehlt.set(t.mitarbeiter.iter().map(|m| m.id).collect());
         self.nur_teilnehmende.set(false);
         self.zuruecksetzen();
     }
 
-    /// Termin öffnen, um nur Teilnehmende hinzuzufügen (Recht „Teilnehmende hinzufügen“).
-    pub fn teilnehmende_hinzufuegen(&self, t: Termin) {
+    /// Termin öffnen, um nur die Teilnehmenden zu ändern (Recht „Teilnehmende bearbeiten“).
+    pub fn teilnehmende_bearbeiten(&self, t: Termin) {
         self.bearbeiten(t);
         self.nur_teilnehmende.set(true);
     }
@@ -110,7 +105,6 @@ impl TerminMaske {
         // Neue Termine beginnen immer bei „Neu“
         self.status.set(TerminStatus::Neu);
         self.ausgewaehlt.set(Vec::new());
-        self.bestehend.set(Vec::new());
         self.nur_teilnehmende.set(false);
         self.zuruecksetzen();
     }
@@ -138,9 +132,9 @@ pub fn TerminSeite() -> impl IntoView {
     let darf_anlegen = sitzung.recht(Bereich::Termine, Aktion::Anlegen);
     let darf_bearbeiten = sitzung.recht(Bereich::Termine, Aktion::Bearbeiten);
     let darf_loeschen = sitzung.recht(Bereich::Termine, Aktion::Loeschen);
-    let darf_hinzufuegen = sitzung.recht(Bereich::Termine, Aktion::TeilnehmendeHinzufuegen);
-    // Nur hinzufügen, wenn das volle Bearbeiten nicht erlaubt ist
-    let nur_hinzufuegen = move || darf_hinzufuegen.get() && !darf_bearbeiten.get();
+    let darf_teilnehmende = sitzung.recht(Bereich::Termine, Aktion::TeilnehmendeBearbeiten);
+    // Eigener Knopf nur, wenn das volle Bearbeiten nicht erlaubt ist
+    let nur_teilnehmende = move || darf_teilnehmende.get() && !darf_bearbeiten.get();
     let speichern = ServerAction::<TerminSpeichern>::new();
     let loeschen = ServerAction::<TerminLoeschen>::new();
     let termine = Resource::new(
@@ -153,12 +147,12 @@ pub fn TerminSeite() -> impl IntoView {
     ergebnis_beobachten(loeschen.value(), listen_meldung, || {});
 
     let termin_bearbeiten = move |t: Termin| maske.bearbeiten(t);
-    // Doppelklick: bearbeiten oder, falls nur das erlaubt ist, Teilnehmende hinzufügen
+    // Doppelklick: bearbeiten oder, falls nur das erlaubt ist, Teilnehmende bearbeiten
     let termin_oeffnen = move |t: Termin| {
         if darf_bearbeiten.get_untracked() {
             maske.bearbeiten(t)
-        } else if darf_hinzufuegen.get_untracked() {
-            maske.teilnehmende_hinzufuegen(t)
+        } else if darf_teilnehmende.get_untracked() {
+            maske.teilnehmende_bearbeiten(t)
         }
     };
 
@@ -211,7 +205,7 @@ pub fn TerminSeite() -> impl IntoView {
                                                 let fuer_doppelklick = t.clone();
                                                 let fuer_button = t.clone();
                                                 let fuer_gleichen_kurs = t.clone();
-                                                let fuer_hinzufuegen = t.clone();
+                                                let fuer_teilnehmende = t.clone();
                                                 let datum = if t.beginn.date() == t.ende.date() {
                                                     t.beginn.format(ANZEIGE_DATUM).to_string()
                                                 } else {
@@ -230,11 +224,11 @@ pub fn TerminSeite() -> impl IntoView {
                                                 view! {
                                                     <tr class="select-none hover:bg-base-300/60"
                                                         class=("bg-primary/5", ist_offen)
-                                                        class:cursor-pointer=move || darf_bearbeiten.get() || darf_hinzufuegen.get()
+                                                        class:cursor-pointer=move || darf_bearbeiten.get() || darf_teilnehmende.get()
                                                         title=move || if darf_bearbeiten.get() {
                                                             Some("Doppelklick zum Bearbeiten")
                                                         } else {
-                                                            darf_hinzufuegen.get().then_some("Doppelklick, um Teilnehmende hinzuzufügen")
+                                                            darf_teilnehmende.get().then_some("Doppelklick, um Teilnehmende zu bearbeiten")
                                                         }
                                                         on:dblclick=move |_| termin_oeffnen(fuer_doppelklick.clone())>
                                                         <td>
@@ -289,16 +283,16 @@ pub fn TerminSeite() -> impl IntoView {
                                                                         <Icon icon=icondata::LuCopyPlus/>
                                                                     </button>
                                                                 </Show>
-                                                                <Show when=nur_hinzufuegen>
+                                                                <Show when=nur_teilnehmende>
                                                                     <button class="btn btn-ghost btn-sm btn-square"
-                                                                        title="Teilnehmende hinzufügen"
-                                                                        aria-label="Teilnehmende hinzufügen"
+                                                                        title="Teilnehmende bearbeiten"
+                                                                        aria-label="Teilnehmende bearbeiten"
                                                                         on:dblclick=|ev| ev.stop_propagation()
                                                                         on:click={
-                                                                            let t = fuer_hinzufuegen.clone();
-                                                                            move |_| maske.teilnehmende_hinzufuegen(t.clone())
+                                                                            let t = fuer_teilnehmende.clone();
+                                                                            move |_| maske.teilnehmende_bearbeiten(t.clone())
                                                                         }>
-                                                                        <Icon icon=icondata::LuUserPlus/>
+                                                                        <Icon icon=icondata::LuUserPen/>
                                                                     </button>
                                                                 </Show>
                                                                 <PdfKnopf termin_id=id/>
@@ -339,7 +333,7 @@ pub fn TerminSeite() -> impl IntoView {
                             schliessen=move || panel_termin.set(None)
                             bearbeiten=move |t| termin_oeffnen(t)
                             darf_bearbeiten
-                            darf_hinzufuegen
+                            darf_teilnehmende
                         />
                     </aside>
                 })}
@@ -363,10 +357,8 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
 
     let TerminMaske {
         offen, bearbeite, kurs_id, beginn, ende, adresse_id, max_teilnehmer, status,
-        ausgewaehlt, suche, meldung, hinweis, weiterer, nur_teilnehmende, bestehend,
+        ausgewaehlt, suche, meldung, hinweis, weiterer, nur_teilnehmende,
     } = maske;
-    // Im Modus „nur hinzufügen“ lassen sich bisherige Teilnehmende nicht entfernen
-    let gesperrt = Signal::derive(move || if nur_teilnehmende.get() { bestehend.get() } else { Vec::new() });
 
     ergebnis_beobachten(speichern.value(), meldung, move || {
         if weiterer.get_untracked() {
@@ -410,7 +402,7 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
 
     let dialog_titel = Signal::derive(move || {
         if nur_teilnehmende.get() {
-            "Teilnehmende hinzufügen"
+            "Teilnehmende bearbeiten"
         } else if bearbeite.get().is_some() {
             "Termin bearbeiten"
         } else {
@@ -430,7 +422,7 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
                     </div>
                 </Show>
                 <Fehlermeldung meldung/>
-                // Bei „nur Teilnehmende hinzufügen“ sind alle Angaben zum Termin gesperrt
+                // Bei „nur Teilnehmende bearbeiten“ sind alle Angaben zum Termin gesperrt
                 <fieldset class="contents" disabled=move || nur_teilnehmende.get()>
                 <fieldset class="fieldset">
                     <legend class="fieldset-legend">"Status"</legend>
@@ -496,7 +488,7 @@ pub fn TerminDialog(maske: TerminMaske, speichern: ServerAction<TerminSpeichern>
                     <Suspense fallback=Laden>
                         {move || Suspend::new(async move {
                             let liste = mitarbeiter.await.unwrap_or_default();
-                            view! { <MitarbeiterAuswahl liste ausgewaehlt suche max_plaetze gesperrt/> }
+                            view! { <MitarbeiterAuswahl liste ausgewaehlt suche max_plaetze/> }
                         })}
                     </Suspense>
                 </fieldset>
@@ -683,8 +675,6 @@ pub(crate) fn MitarbeiterAuswahl(
     ausgewaehlt: RwSignal<Vec<Uuid>>,
     suche: RwSignal<String>,
     max_plaetze: Signal<Option<usize>>,
-    /// Teilnehmende, die sich nicht entfernen lassen
-    gesperrt: Signal<Vec<Uuid>>,
 ) -> impl IntoView {
     if liste.is_empty() {
         return view! { <p class="p-2 text-base-content/60">"Noch keine Mitarbeiter erfasst."</p> }.into_any();
@@ -733,13 +723,11 @@ pub(crate) fn MitarbeiterAuswahl(
                 <For each=gewaehlte key=|m| m.id let:m>
                     <span class="badge badge-primary badge-soft gap-1 pr-1">
                         {m.name()}
-                        <Show when=move || gesperrt.with(|g| !g.contains(&m.id))>
-                            <button type="button" class="btn btn-ghost btn-xs btn-circle h-4 min-h-4 w-4"
-                                aria-label=format!("{} entfernen", m.name())
-                                on:click=move |_| umschalten(m.id, false)>
-                                <Icon icon=icondata::LuX width="0.75rem" height="0.75rem"/>
-                            </button>
-                        </Show>
+                        <button type="button" class="btn btn-ghost btn-xs btn-circle h-4 min-h-4 w-4"
+                            aria-label=format!("{} entfernen", m.name())
+                            on:click=move |_| umschalten(m.id, false)>
+                            <Icon icon=icondata::LuX width="0.75rem" height="0.75rem"/>
+                        </button>
                     </span>
                 </For>
             </div>
@@ -768,10 +756,7 @@ pub(crate) fn MitarbeiterAuswahl(
                 <label class="label w-full cursor-pointer rounded-field px-2 py-1.5 hover:bg-base-200">
                     <input type="checkbox" class="checkbox checkbox-sm checkbox-primary"
                         prop:checked=move || ausgewaehlt.with(|v| v.contains(&m.id))
-                        disabled=move || {
-                            let gewaehlt = ausgewaehlt.with(|v| v.contains(&m.id));
-                            (voll() && !gewaehlt) || gesperrt.with(|g| g.contains(&m.id))
-                        }
+                        disabled=move || voll() && !ausgewaehlt.with(|v| v.contains(&m.id))
                         on:change:target=move |ev| umschalten(m.id, ev.target().checked())/>
                     <span class="flex flex-col">
                         <span class="text-base-content">{m.name()}</span>
@@ -797,7 +782,7 @@ fn TeilnehmerPanel(
     schliessen: impl Fn() + Copy + 'static,
     bearbeiten: impl Fn(Termin) + Send + Sync + 'static,
     darf_bearbeiten: Recht,
-    darf_hinzufuegen: Recht,
+    darf_teilnehmende: Recht,
 ) -> impl IntoView {
     let belegt = termin.mitarbeiter.len();
     let datum = termin.beginn.format(ANZEIGE_DATUM).to_string();
@@ -854,7 +839,7 @@ fn TeilnehmerPanel(
                     <Icon icon=icondata::LuFileText/>
                     "Als PDF"
                 </a>
-                <Show when=move || darf_bearbeiten.get() || darf_hinzufuegen.get()>
+                <Show when=move || darf_bearbeiten.get() || darf_teilnehmende.get()>
                     <button class="btn btn-sm btn-ghost flex-1" on:click={
                         let bearbeiten = bearbeiten.clone();
                         let termin = zum_bearbeiten.clone();
@@ -863,7 +848,7 @@ fn TeilnehmerPanel(
                         {move || if darf_bearbeiten.get() {
                             view! { <Icon icon=icondata::LuPencil/> "Bearbeiten" }.into_any()
                         } else {
-                            view! { <Icon icon=icondata::LuUserPlus/> "Teilnehmende hinzufügen" }.into_any()
+                            view! { <Icon icon=icondata::LuUserPen/> "Teilnehmende bearbeiten" }.into_any()
                         }}
                     </button>
                 </Show>
