@@ -136,12 +136,12 @@ pub fn BauobjektSeite() -> impl IntoView {
                                             if z.contains(&id) { z.retain(|x| *x != id) } else { z.push(id) }
                                         });
                                         view! {
-                                            <tbody class="border-b-4 border-base-200 last:border-b-0">
-                                                <tr class="select-none bg-stutz/25 hover:bg-stutz/40"
+                                            <tbody class="border-b border-base-300 last:border-b-0">
+                                                <tr class="select-none bg-base-200/60 hover:bg-base-300/60"
                                                     class:cursor-pointer=move || darf_bearbeiten.get()
                                                     title=move || darf_bearbeiten.get().then_some("Doppelklick zum Bearbeiten")
                                                     on:dblclick=move |_| if darf_bearbeiten.get_untracked() { oeffnen(Some(fuer_doppelklick.clone())) }>
-                                                    <td class="border-l-4 border-stutz">
+                                                    <td>
                                                         <div class="flex items-center gap-2">
                                                             <button type="button" class="btn btn-ghost btn-xs btn-square"
                                                                 aria-label=move || if offen() { "Projekte einklappen" } else { "Projekte ausklappen" }
@@ -191,7 +191,7 @@ pub fn BauobjektSeite() -> impl IntoView {
                                                         let eigene = eigene.clone();
                                                         if eigene.is_empty() {
                                                             view! {
-                                                                <tr><td colspan="4" class="border-l-4 border-stutz/30 pl-14 text-sm text-base-content/50">"Noch keine Projekte."</td></tr>
+                                                                <tr><td colspan="4" class="pl-14 text-sm text-base-content/50">"Noch keine Projekte."</td></tr>
                                                             }.into_any()
                                                         } else {
                                                             eigene.into_iter().map(|p| view! {
@@ -279,16 +279,16 @@ fn ProjektZeile(
     let fuer_doppelklick = projekt.clone();
     let fuer_knopf = projekt.clone();
     view! {
-        <tr class="select-none bg-base-100 hover:bg-base-200"
+        <tr class="select-none hover:bg-base-300/60"
             class:cursor-pointer=move || darf_bearbeiten.get()
             title=move || darf_bearbeiten.get().then_some("Doppelklick zum Bearbeiten")
             on:dblclick=move |_| if darf_bearbeiten.get_untracked() { maske.bearbeiten(fuer_doppelklick.clone()) }>
-            <td class="border-l-4 border-stutz/30">
+            <td>
                 <div class="flex items-start gap-2 pl-8">
                     <Icon icon=icondata::LuCornerDownRight attr:class="mt-1 shrink-0 opacity-40"/>
                     <div>
                         <div class="font-mono text-xs text-base-content/60">{projekt.projektnummer}</div>
-                        <div>{projekt.bezeichnung}</div>
+                        <div class="font-medium">{projekt.bezeichnung}</div>
                     </div>
                 </div>
             </td>
