@@ -219,8 +219,11 @@ pub async fn buchungen_laden() -> Result<Vec<Buchung>, ServerFnError> {
 
     recht_pflicht(&[(Bereich::Buchungen, Aktion::Sehen), (Bereich::Stunden, Aktion::Sehen)]).await?;
     sqlx::query_as(
-        "SELECT b.id, b.projekt_id, p.projektnummer, p.bezeichnung AS projekt_bezeichnung, b.zeit, b.erfasst_am
-         FROM buchung b JOIN projekt p ON p.id = b.projekt_id
+        "SELECT b.id, b.projekt_id, p.projektnummer, p.bezeichnung AS projekt_bezeichnung,
+                b.mitarbeiter_id, m.vorname || ' ' || m.nachname AS mitarbeiter_name, b.zeit, b.erfasst_am
+         FROM buchung b
+         JOIN projekt p ON p.id = b.projekt_id
+         LEFT JOIN mitarbeiter m ON m.id = b.mitarbeiter_id
          ORDER BY b.erfasst_am DESC",
     )
     .fetch_all(pool())
@@ -229,7 +232,12 @@ pub async fn buchungen_laden() -> Result<Vec<Buchung>, ServerFnError> {
 }
 
 #[server(input = Json)]
-pub async fn buchung_speichern(id: Option<Uuid>, projekt_id: Uuid, zeit: f64) -> Result<(), ServerFnError> {
+pub async fn buchung_speichern(
+    id: Option<Uuid>,
+    projekt_id: Uuid,
+    mitarbeiter_id: Uuid,
+    zeit: f64,
+) -> Result<(), ServerFnError> {
     use crate::backend::auth::server::recht_pflicht;
     use crate::backend::db::{fehler, pool};
     use crate::models::{Aktion, Bereich};
@@ -243,10 +251,13 @@ pub async fn buchung_speichern(id: Option<Uuid>, projekt_id: Uuid, zeit: f64) ->
     }
 
     match id {
-        Some(id) => sqlx::query("UPDATE buchung SET projekt_id = $2, zeit = $3 WHERE id = $1").bind(id),
-        None => sqlx::query("INSERT INTO buchung (projekt_id, zeit) VALUES ($1, $2)"),
+        Some(id) => {
+            sqlx::query("UPDATE buchung SET projekt_id = $2, mitarbeiter_id = $3, zeit = $4 WHERE id = $1").bind(id)
+        }
+        None => sqlx::query("INSERT INTO buchung (projekt_id, mitarbeiter_id, zeit) VALUES ($1, $2, $3)"),
     }
     .bind(projekt_id)
+    .bind(mitarbeiter_id)
     .bind(zeit)
     .execute(pool())
     .await

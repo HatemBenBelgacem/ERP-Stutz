@@ -119,7 +119,7 @@ pub async fn kurs_loeschen(id: Uuid) -> Result<(), ServerFnError> {
 
 #[server(input = Json)]
 pub async fn geschaeftsbereiche_laden() -> Result<Vec<Geschaeftsbereich>, ServerFnError> {
-    crate::backend::auth::server::recht_pflicht(&[(Bereich::Geschaeftsbereiche, Aktion::Sehen), (Bereich::Kurse, Aktion::Sehen), (Bereich::Termine, Aktion::Sehen)]).await?;
+    crate::backend::auth::server::recht_pflicht(&[(Bereich::Geschaeftsbereiche, Aktion::Sehen), (Bereich::Kurse, Aktion::Sehen), (Bereich::Termine, Aktion::Sehen), (Bereich::Mitarbeiter, Aktion::Sehen)]).await?;
     use crate::backend::db::{fehler, pool};
     sqlx::query_as("SELECT id, beschreibung FROM geschaeftsbereich ORDER BY beschreibung")
         .fetch_all(pool())
@@ -162,6 +162,7 @@ pub async fn adressen_laden() -> Result<Vec<Adresse>, ServerFnError> {
         (Bereich::Termine, Aktion::Sehen),
         (Bereich::Bauobjekte, Aktion::Sehen),
         (Bereich::Projekte, Aktion::Sehen),
+        (Bereich::Mitarbeiter, Aktion::Sehen),
     ])
     .await?;
     use crate::backend::db::{fehler, pool};
@@ -216,10 +217,11 @@ pub async fn adresse_loeschen(id: Uuid) -> Result<(), ServerFnError> {
 
 #[server(input = Json)]
 pub async fn mitarbeiter_laden() -> Result<Vec<Mitarbeiter>, ServerFnError> {
-    crate::backend::auth::server::recht_pflicht(&[(Bereich::Mitarbeiter, Aktion::Sehen), (Bereich::Termine, Aktion::Sehen), (Bereich::Anmeldung, Aktion::Sehen)]).await?;
+    crate::backend::auth::server::recht_pflicht(&[(Bereich::Mitarbeiter, Aktion::Sehen), (Bereich::Termine, Aktion::Sehen), (Bereich::Anmeldung, Aktion::Sehen), (Bereich::Buchungen, Aktion::Sehen), (Bereich::Stunden, Aktion::Sehen)]).await?;
     use crate::backend::db::{fehler, pool};
     sqlx::query_as(
-        "SELECT id, vorname, nachname, email, abteilung FROM mitarbeiter ORDER BY nachname, vorname",
+        "SELECT id, vorname, nachname, email, abteilung, adresse_id, geschaeftsbereich_id
+         FROM mitarbeiter ORDER BY nachname, vorname",
     )
     .fetch_all(pool())
     .await
@@ -233,6 +235,8 @@ pub async fn mitarbeiter_speichern(
     nachname: String,
     email: String,
     abteilung: String,
+    adresse_id: Option<Uuid>,
+    geschaeftsbereich_id: Option<Uuid>,
 ) -> Result<(), ServerFnError> {
     crate::backend::auth::server::recht_pflicht(&[(Bereich::Mitarbeiter, if id.is_some() { Aktion::Bearbeiten } else { Aktion::Anlegen })]).await?;
     use crate::backend::db::{fehler, pool};
@@ -244,11 +248,14 @@ pub async fn mitarbeiter_speichern(
     }
     let abfrage = match id {
         Some(id) => sqlx::query(
-            "UPDATE mitarbeiter SET vorname = $2, nachname = $3, email = $4, abteilung = $5 WHERE id = $1",
+            "UPDATE mitarbeiter
+             SET vorname = $2, nachname = $3, email = $4, abteilung = $5, adresse_id = $6, geschaeftsbereich_id = $7
+             WHERE id = $1",
         )
         .bind(id),
         None => sqlx::query(
-            "INSERT INTO mitarbeiter (vorname, nachname, email, abteilung) VALUES ($1, $2, $3, $4)",
+            "INSERT INTO mitarbeiter (vorname, nachname, email, abteilung, adresse_id, geschaeftsbereich_id)
+             VALUES ($1, $2, $3, $4, $5, $6)",
         ),
     };
     abfrage
@@ -256,6 +263,8 @@ pub async fn mitarbeiter_speichern(
         .bind(nachname)
         .bind(email)
         .bind(abteilung.trim().to_string())
+        .bind(adresse_id)
+        .bind(geschaeftsbereich_id)
         .execute(pool())
         .await
         .map_err(fehler)?;
@@ -266,7 +275,7 @@ pub async fn mitarbeiter_speichern(
 pub async fn mitarbeiter_loeschen(id: Uuid) -> Result<(), ServerFnError> {
     crate::backend::auth::server::recht_pflicht(&[(Bereich::Mitarbeiter, Aktion::Loeschen)]).await?;
     use crate::backend::db::{fehler, pool};
-    // Teilnahmen werden per ON DELETE CASCADE mitgelöscht.
+    // Teilnahmen werden per ON DELETE CASCADE mitgelöscht, Buchungen schützen ihn (db::fehler).
     sqlx::query("DELETE FROM mitarbeiter WHERE id = $1")
         .bind(id)
         .execute(pool())
@@ -329,8 +338,9 @@ async fn termine_abfragen(nur_aktive: bool) -> Result<Vec<Termin>, ServerFnError
     .await
     .map_err(fehler)?;
 
-    let teilnahmen: Vec<(Uuid, Uuid, String, String, String, String)> = sqlx::query_as(
-        "SELECT tm.termin_id, m.id, m.vorname, m.nachname, m.email, m.abteilung
+    type Teilnahme = (Uuid, Uuid, String, String, String, String, Option<Uuid>, Option<Uuid>);
+    let teilnahmen: Vec<Teilnahme> = sqlx::query_as(
+        "SELECT tm.termin_id, m.id, m.vorname, m.nachname, m.email, m.abteilung, m.adresse_id, m.geschaeftsbereich_id
          FROM termin_mitarbeiter tm JOIN mitarbeiter m ON m.id = tm.mitarbeiter_id
          ORDER BY m.nachname, m.vorname",
     )
@@ -352,13 +362,15 @@ async fn termine_abfragen(nur_aktive: bool) -> Result<Vec<Termin>, ServerFnError
     }
 
     let mut pro_termin: HashMap<Uuid, Vec<Mitarbeiter>> = HashMap::new();
-    for (termin_id, id, vorname, nachname, email, abteilung) in teilnahmen {
+    for (termin_id, id, vorname, nachname, email, abteilung, adresse_id, geschaeftsbereich_id) in teilnahmen {
         pro_termin.entry(termin_id).or_default().push(Mitarbeiter {
             id,
             vorname,
             nachname,
             email,
             abteilung,
+            adresse_id,
+            geschaeftsbereich_id,
         });
     }
 

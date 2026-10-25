@@ -50,6 +50,14 @@ pub fn fehler(e: sqlx::Error) -> ServerFnError {
             Some("23505") if db.constraint() == Some("projekt_projektnummer_key") => {
                 return ServerFnError::new("Ein Projekt mit dieser Projektnummer gibt es bereits.");
             }
+            Some("23503") if db.constraint() == Some("buchung_mitarbeiter_id_fkey") => {
+                return ServerFnError::new(
+                    "Der Mitarbeiter kann nicht gelöscht werden, solange noch Stunden auf ihn gebucht sind.",
+                );
+            }
+            Some("23505") if db.constraint() == Some("mitarbeiter_adresse_id_key") => {
+                return ServerFnError::new("Diese Adresse gehört bereits einem anderen Mitarbeiter.");
+            }
             Some("23503") if db.constraint() == Some("buchung_projekt_id_fkey") => {
                 return ServerFnError::new(
                     "Das Projekt kann nicht gelöscht werden, solange noch Stunden darauf gebucht sind.",

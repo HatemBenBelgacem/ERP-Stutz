@@ -57,6 +57,10 @@ pub struct Mitarbeiter {
     pub nachname: String,
     pub email: String,
     pub abteilung: String,
+    /// Eigene Adresse (1:1)
+    pub adresse_id: Option<Uuid>,
+    /// Geschäftsbereich, zu dem der Mitarbeiter gehört (N:1)
+    pub geschaeftsbereich_id: Option<Uuid>,
 }
 
 impl Mitarbeiter {
@@ -107,7 +111,7 @@ pub struct ProjektEingabe {
     pub architekt_id: Option<Uuid>,
 }
 
-/// Auf ein Projekt gebuchte Zeit in Stunden (Buchung N:1 Projekt).
+/// Auf ein Projekt gebuchte Zeit in Stunden (Buchung N:1 Projekt, N:1 Mitarbeiter).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
 pub struct Buchung {
@@ -115,6 +119,9 @@ pub struct Buchung {
     pub projekt_id: Uuid,
     pub projektnummer: String,
     pub projekt_bezeichnung: String,
+    /// Fehlt nur bei Buchungen, die vor der Zuordnung erfasst wurden
+    pub mitarbeiter_id: Option<Uuid>,
+    pub mitarbeiter_name: Option<String>,
     pub zeit: f64,
     pub erfasst_am: NaiveDateTime,
 }
