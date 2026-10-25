@@ -7,6 +7,7 @@ use crate::backend::auth::{Abmelden, Anmelden, Registrieren, aktueller_benutzer_
 use crate::components::adresse::AdresseSeite;
 use crate::components::anmeldung::{AnmeldeSeite, RegistrierSeite};
 use crate::components::benutzer::BenutzerSeite;
+use crate::components::buchung::{BuchungSeite, StundenSeite};
 use crate::components::einstellungen::{EinstellungenSeite, EinstellungenStart};
 use crate::components::gemeinsam::Leer;
 use crate::components::geschaeftsbereich::GeschaeftsbereichSeite;
@@ -181,6 +182,14 @@ pub fn App() -> impl IntoView {
                         view=|| view! {
                             <Bereichsschutz bereich=Bereich::Bauobjekte oder=Bereich::Projekte><BauobjektSeite/></Bereichsschutz>
                         }
+                    />
+                    <Route
+                        path=StaticSegment("stunden-erfassen")
+                        view=|| view! { <Bereichsschutz bereich=Bereich::Stunden><StundenSeite/></Bereichsschutz> }
+                    />
+                    <Route
+                        path=StaticSegment("buchungen")
+                        view=|| view! { <Bereichsschutz bereich=Bereich::Buchungen><BuchungSeite/></Bereichsschutz> }
                     />
                     <Route
                         path=StaticSegment("werkhof")

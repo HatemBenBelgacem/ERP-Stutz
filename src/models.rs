@@ -107,6 +107,24 @@ pub struct ProjektEingabe {
     pub architekt_id: Option<Uuid>,
 }
 
+/// Auf ein Projekt gebuchte Zeit in Stunden (Buchung N:1 Projekt).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct Buchung {
+    pub id: Uuid,
+    pub projekt_id: Uuid,
+    pub projektnummer: String,
+    pub projekt_bezeichnung: String,
+    pub zeit: f64,
+    pub erfasst_am: NaiveDateTime,
+}
+
+/// Stunden für die Anzeige, z. B. `1.5 h`.
+pub fn stunden_anzeige(zeit: f64) -> String {
+    let text = format!("{zeit:.2}");
+    format!("{} h", text.trim_end_matches('0').trim_end_matches('.'))
+}
+
 /// Termin inkl. zugehörigem Kurs (N:1), Adresse (N:1) und Teilnehmenden (M:N).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Termin {
@@ -281,6 +299,9 @@ pub enum Bereich {
     Lager,
     Projekte,
     Bauobjekte,
+    Buchungen,
+    /// Seite „Stunden erfassen“: Stunden auf Projekte buchen
+    Stunden,
     Werkhof,
     Finanzen,
     Benutzer,
@@ -294,7 +315,9 @@ impl Bereich {
     pub const WEITERBILDUNG: [Bereich; 3] = [Bereich::Termine, Bereich::Kurse, Bereich::Anmeldung];
     /// Bereiche der Seite „Projekte“ (Baumansicht Bauobjekt → Projekte)
     pub const PROJEKTE: [Bereich; 2] = [Bereich::Projekte, Bereich::Bauobjekte];
-    pub const HAUPTBEREICHE: [Bereich; 11] = [
+    /// Stundenerfassung auf Projekte; in der Rechteverwaltung unter „Projekte“
+    pub const ZEITERFASSUNG: [Bereich; 2] = [Bereich::Stunden, Bereich::Buchungen];
+    pub const HAUPTBEREICHE: [Bereich; 13] = [
         Bereich::Termine,
         Bereich::Kurse,
         Bereich::Anmeldung,
@@ -304,11 +327,13 @@ impl Bereich {
         Bereich::Lager,
         Bereich::Projekte,
         Bereich::Bauobjekte,
+        Bereich::Stunden,
+        Bereich::Buchungen,
         Bereich::Werkhof,
         Bereich::Finanzen,
     ];
     pub const EINSTELLUNGEN: [Bereich; 3] = [Bereich::Benutzer, Bereich::Rollen, Bereich::Geschaeftsbereiche];
-    pub const ALLE: [Bereich; 14] = [
+    pub const ALLE: [Bereich; 16] = [
         Bereich::Termine,
         Bereich::Kurse,
         Bereich::Anmeldung,
@@ -318,6 +343,8 @@ impl Bereich {
         Bereich::Lager,
         Bereich::Projekte,
         Bereich::Bauobjekte,
+        Bereich::Stunden,
+        Bereich::Buchungen,
         Bereich::Werkhof,
         Bereich::Finanzen,
         Bereich::Benutzer,
@@ -338,6 +365,8 @@ impl Bereich {
             Bereich::Lager => "lager",
             Bereich::Projekte => "projekte",
             Bereich::Bauobjekte => "bauobjekte",
+            Bereich::Buchungen => "buchungen",
+            Bereich::Stunden => "stunden",
             Bereich::Werkhof => "werkhof",
             Bereich::Finanzen => "finanzen",
             Bereich::Benutzer => "benutzer",
@@ -357,6 +386,8 @@ impl Bereich {
             Bereich::Lager => "Lager",
             Bereich::Projekte => "Projekte",
             Bereich::Bauobjekte => "Bauobjekte",
+            Bereich::Buchungen => "Buchungen",
+            Bereich::Stunden => "Stunden erfassen",
             Bereich::Werkhof => "Werkhof",
             Bereich::Finanzen => "Finanzen",
             Bereich::Benutzer => "Benutzer",
@@ -376,6 +407,8 @@ impl Bereich {
             Bereich::Lager => "/lager",
             Bereich::Projekte => "/projekte",
             Bereich::Bauobjekte => "/projekte",
+            Bereich::Buchungen => "/buchungen",
+            Bereich::Stunden => "/stunden-erfassen",
             Bereich::Werkhof => "/werkhof",
             Bereich::Finanzen => "/finanzen",
             Bereich::Benutzer => "/einstellungen/benutzer",
@@ -387,7 +420,7 @@ impl Bereich {
     pub fn gruppe(self) -> Option<&'static str> {
         if Bereich::PERSONAL.contains(&self) {
             Some("Personal")
-        } else if Bereich::PROJEKTE.contains(&self) {
+        } else if Bereich::PROJEKTE.contains(&self) || Bereich::ZEITERFASSUNG.contains(&self) {
             Some("Projekte")
         } else if Bereich::EINSTELLUNGEN.contains(&self) {
             Some("Einstellungen")
@@ -403,6 +436,8 @@ impl Bereich {
             Bereich::Einkauf | Bereich::Lager | Bereich::Werkhof | Bereich::Finanzen => {
                 &[Aktion::Sehen]
             }
+            // „Sehen“ heisst hier: eigene Stunden erfassen dürfen
+            Bereich::Stunden => &[Aktion::Sehen],
             // Bei Terminen lassen sich Teilnehmende auch ohne „Bearbeiten“ ändern
             Bereich::Termine => &Aktion::ALLE,
             // Anmeldung: aktive Termine sehen und Teilnehmende an- und abmelden
