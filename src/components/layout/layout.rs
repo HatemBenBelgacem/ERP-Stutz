@@ -49,13 +49,16 @@ pub fn Layout() -> impl IntoView {
     // Desktop (ab lg): breit oder per Knopf auf Icons eingeklappt.
     let eingeklappt = RwSignal::new(false);
     let mobil_offen = RwSignal::new(false);
+    let kompakt = kompakte_tabellen();
 
     view! {
         <div class="flex h-screen flex-col">
-            <Header eingeklappt mobil_offen/>
+            <Header eingeklappt mobil_offen kompakt/>
             <div class="flex flex-1 overflow-hidden">
                 <Sidebar eingeklappt mobil_offen/>
-                <main class="min-w-0 flex-1 overflow-y-auto p-3 sm:p-4 lg:p-8">
+                // data-tabellen="xs" verkleinert alle Tabellen (siehe tailwind.css)
+                <main class="min-w-0 flex-1 overflow-y-auto p-3 sm:p-4 lg:p-8"
+                    data-tabellen=move || if kompakt.get() { "xs" } else { "normal" }>
                     <Outlet/>
                 </main>
             </div>
@@ -63,8 +66,36 @@ pub fn Layout() -> impl IntoView {
     }
 }
 
+/// Schlüssel im Browser-Speicher für die Tabellengrösse
+#[cfg(feature = "hydrate")]
+const SPEICHER_KOMPAKT: &str = "erp_stutz_kompakte_tabellen";
+
+/// Ob Tabellen kompakt (XS) angezeigt werden. Der Browser merkt sich die Wahl;
+/// gelesen wird erst nach dem Laden, damit Server und Browser gleich starten.
+fn kompakte_tabellen() -> RwSignal<bool> {
+    let kompakt = RwSignal::new(false);
+    #[cfg(feature = "hydrate")]
+    {
+        let speicher = || window().local_storage().ok().flatten();
+        Effect::new(move |erster_lauf: Option<()>| {
+            let wert = kompakt.get();
+            if erster_lauf.is_none() {
+                // Beim Start den gespeicherten Wert übernehmen
+                if let Some(s) = speicher() {
+                    if s.get_item(SPEICHER_KOMPAKT).ok().flatten().as_deref() == Some("1") {
+                        kompakt.set(true);
+                    }
+                }
+            } else if let Some(s) = speicher() {
+                let _ = s.set_item(SPEICHER_KOMPAKT, if wert { "1" } else { "0" });
+            }
+        });
+    }
+    kompakt
+}
+
 #[component]
-fn Header(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl IntoView {
+fn Header(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>, kompakt: RwSignal<bool>) -> impl IntoView {
     view! {
         // Farben wie stutzag.ch: gelber Balken, schwarze Schrift
         <header class="navbar z-50 h-16 min-h-16 gap-2 border-b border-stutz-dunkel bg-stutz px-3 text-black">
@@ -93,6 +124,17 @@ fn Header(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl Into
                 "ERP-Stutz AG"
             </A>
             <div class="flex-1"></div>
+            <button
+                class="btn btn-ghost btn-square text-black hover:border-transparent hover:bg-black/10"
+                class:bg-black=move || kompakt.get()
+                class:text-stutz=move || kompakt.get()
+                title=move || if kompakt.get() { "Normale Tabellen" } else { "Kompakte Tabellen (Zeilengrösse XS)" }
+                aria-label="Kompakte Tabellen ein- oder ausschalten"
+                aria-pressed=move || kompakt.get().to_string()
+                on:click=move |_| kompakt.update(|k| *k = !*k)
+            >
+                <Icon icon=icondata::LuRows4 width="1.25rem" height="1.25rem"/>
+            </button>
             <Benutzermenue/>
         </header>
     }

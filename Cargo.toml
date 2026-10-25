@@ -29,10 +29,12 @@ sqlx = { version = "0.9.0", features = ["runtime-tokio", "tls-rustls", "postgres
 tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros"], optional = true }
 uuid = { version = "1.28.0", features = ["serde", "v4", "js"] }
 wasm-bindgen = { version = "=0.2.129", optional = true }
+# Browser-Speicher (localStorage) für Anzeige-Einstellungen
+web-sys = { version = "0.3.106", features = ["Storage"], optional = true }
 
 [features]
 # Browser-Build (WebAssembly)
-hydrate = ["leptos/hydrate", "dep:console_error_panic_hook", "dep:wasm-bindgen"]
+hydrate = ["leptos/hydrate", "dep:console_error_panic_hook", "dep:wasm-bindgen", "dep:web-sys"]
 # Server-Build (Axum + PostgreSQL)
 ssr = [
     "dep:axum",

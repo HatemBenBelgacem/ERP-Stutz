@@ -14,3 +14,8 @@
 :root {
   color-scheme: light;
 }
+
+/* Kompakte Tabellen: Schalter in der Kopfzeile setzt data-tabellen="xs" */
+[data-tabellen="xs"] .table {
+  @apply table-xs;
+}
