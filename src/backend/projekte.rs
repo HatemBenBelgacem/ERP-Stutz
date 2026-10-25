@@ -1,11 +1,12 @@
 //! Bauobjekte und ihre Projekte (Bauobjekt 1:N Projekt). Bauherr und
-//! Architekt sind Adressen.
+//! Architekt sind Adressen. Auf Projekte werden Stunden gebucht
+//! (Projekt 1:N Buchung).
 
 use leptos::prelude::*;
 use leptos::server_fn::codec::Json;
 use uuid::Uuid;
 
-use crate::models::{Bauobjekt, BauobjektEingabe, Projekt, ProjektEingabe};
+use crate::models::{Bauobjekt, BauobjektEingabe, Buchung, Projekt, ProjektEingabe};
 
 #[cfg(feature = "ssr")]
 mod server {
@@ -120,7 +121,14 @@ pub async fn projekte_laden() -> Result<Vec<Projekt>, ServerFnError> {
     use crate::backend::db::{fehler, pool};
     use crate::models::{Aktion, Bereich};
 
-    recht_pflicht(&[(Bereich::Projekte, Aktion::Sehen), (Bereich::Bauobjekte, Aktion::Sehen)]).await?;
+    // Die Stundenerfassung braucht die Liste für die Projektauswahl
+    recht_pflicht(&[
+        (Bereich::Projekte, Aktion::Sehen),
+        (Bereich::Bauobjekte, Aktion::Sehen),
+        (Bereich::Buchungen, Aktion::Sehen),
+        (Bereich::Stunden, Aktion::Sehen),
+    ])
+    .await?;
 
     let zeilen: Vec<(Uuid, String, String, Uuid, String,
                      Option<Uuid>, Option<String>, Option<String>, Option<String>, Option<String>,
@@ -194,6 +202,66 @@ pub async fn projekt_loeschen(id: Uuid) -> Result<(), ServerFnError> {
 
     recht_pflicht(&[(Bereich::Projekte, Aktion::Loeschen)]).await?;
     sqlx::query("DELETE FROM projekt WHERE id = $1")
+        .bind(id)
+        .execute(pool())
+        .await
+        .map_err(fehler)?;
+    Ok(())
+}
+
+// ----------------------------------------------------------------- Buchungen
+
+#[server(input = Json)]
+pub async fn buchungen_laden() -> Result<Vec<Buchung>, ServerFnError> {
+    use crate::backend::auth::server::recht_pflicht;
+    use crate::backend::db::{fehler, pool};
+    use crate::models::{Aktion, Bereich};
+
+    recht_pflicht(&[(Bereich::Buchungen, Aktion::Sehen), (Bereich::Stunden, Aktion::Sehen)]).await?;
+    sqlx::query_as(
+        "SELECT b.id, b.projekt_id, p.projektnummer, p.bezeichnung AS projekt_bezeichnung, b.zeit, b.erfasst_am
+         FROM buchung b JOIN projekt p ON p.id = b.projekt_id
+         ORDER BY b.erfasst_am DESC",
+    )
+    .fetch_all(pool())
+    .await
+    .map_err(fehler)
+}
+
+#[server(input = Json)]
+pub async fn buchung_speichern(id: Option<Uuid>, projekt_id: Uuid, zeit: f64) -> Result<(), ServerFnError> {
+    use crate::backend::auth::server::recht_pflicht;
+    use crate::backend::db::{fehler, pool};
+    use crate::models::{Aktion, Bereich};
+
+    match id {
+        Some(_) => recht_pflicht(&[(Bereich::Buchungen, Aktion::Bearbeiten)]).await?,
+        None => recht_pflicht(&[(Bereich::Buchungen, Aktion::Anlegen), (Bereich::Stunden, Aktion::Sehen)]).await?,
+    };
+    if !zeit.is_finite() || zeit <= 0.0 {
+        return Err(ServerFnError::new("Die Zeit muss grösser als 0 sein."));
+    }
+
+    match id {
+        Some(id) => sqlx::query("UPDATE buchung SET projekt_id = $2, zeit = $3 WHERE id = $1").bind(id),
+        None => sqlx::query("INSERT INTO buchung (projekt_id, zeit) VALUES ($1, $2)"),
+    }
+    .bind(projekt_id)
+    .bind(zeit)
+    .execute(pool())
+    .await
+    .map_err(fehler)?;
+    Ok(())
+}
+
+#[server(input = Json)]
+pub async fn buchung_loeschen(id: Uuid) -> Result<(), ServerFnError> {
+    use crate::backend::auth::server::recht_pflicht;
+    use crate::backend::db::{fehler, pool};
+    use crate::models::{Aktion, Bereich};
+
+    recht_pflicht(&[(Bereich::Buchungen, Aktion::Loeschen)]).await?;
+    sqlx::query("DELETE FROM buchung WHERE id = $1")
         .bind(id)
         .execute(pool())
         .await

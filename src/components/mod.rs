@@ -3,6 +3,7 @@
 pub mod adresse;
 pub mod anmeldung;
 pub mod benutzer;
+pub mod buchung;
 pub mod einstellungen;
 pub mod gemeinsam;
 pub mod geschaeftsbereich;
