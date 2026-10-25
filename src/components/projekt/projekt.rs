@@ -1,4 +1,4 @@
-//! Projekte und Bauobjekte (Bauobjekt 1:N Projekt) als Reiter unter „Projekte“.
+//! Bauobjekte mit ihren Projekten (Bauobjekt 1:N Projekt) als Baumansicht unter „Projekte“.
 
 use leptos::prelude::*;
 use leptos_icons::Icon;
@@ -10,26 +10,11 @@ use crate::backend::projekte::{
     BauobjektLoeschen, BauobjektSpeichern, ProjektLoeschen, ProjektSpeichern, bauobjekte_laden, projekte_laden,
 };
 use crate::components::gemeinsam::{
-    Dialog, DialogAktionen, Fehlermeldung, Laden, Leer, ReiterStart, Reiterseite, Seitenkopf, ZeilenAktionen,
+    Dialog, DialogAktionen, Fehlermeldung, Laden, Leer, Seitenkopf, ZeilenAktionen,
     bestaetigt, ergebnis_beobachten, meldung_aus,
 };
 use crate::components::termin::{AdresseAuswahl, AdresseZeilen};
 use crate::models::{Aktion, Bauobjekt, BauobjektEingabe, Bereich, Projekt, ProjektEingabe};
-
-const REITER: [(Bereich, icondata::Icon); 2] =
-    [(Bereich::Projekte, icondata::LuFolderKanban), (Bereich::Bauobjekte, icondata::LuBuilding2)];
-
-/// Rahmen für Projekte mit Reitern für Projekte und Bauobjekte.
-#[component]
-pub fn ProjekteSeite() -> impl IntoView {
-    view! { <Reiterseite titel="Projekte" untertitel="Bauobjekte und ihre Projekte" reiter=&REITER/> }
-}
-
-/// `/projekte` ohne Reiter: zum ersten erlaubten Reiter weiterleiten.
-#[component]
-pub fn ProjekteStart() -> impl IntoView {
-    view! { <ReiterStart bereiche=&Bereich::PROJEKTE/> }
-}
 
 /// Adresse in einer Tabellenzelle; ohne Adresse ein Strich.
 #[component]
@@ -281,96 +266,6 @@ fn adress_id(adresse: Option<&crate::models::Adresse>) -> String {
 
 // ------------------------------------------------------------------ Projekte
 
-#[component]
-pub fn ProjektSeite() -> impl IntoView {
-    let sitzung = use_sitzung();
-    let darf_anlegen = sitzung.recht(Bereich::Projekte, Aktion::Anlegen);
-    let darf_bearbeiten = sitzung.recht(Bereich::Projekte, Aktion::Bearbeiten);
-    let darf_loeschen = sitzung.recht(Bereich::Projekte, Aktion::Loeschen);
-
-    let speichern = ServerAction::<ProjektSpeichern>::new();
-    let loeschen = ServerAction::<ProjektLoeschen>::new();
-    let projekte = Resource::new(
-        move || (speichern.version().get(), loeschen.version().get()),
-        |_| projekte_laden(),
-    );
-    let maske = ProjektMaske::new();
-    let listen_meldung = RwSignal::new(None::<String>);
-    ergebnis_beobachten(loeschen.value(), listen_meldung, || {});
-
-    view! {
-        <Seitenkopf titel="Projekte" untertitel="Projekte der Bauobjekte">
-            <Show when=move || darf_anlegen.get()>
-                <button class="btn btn-primary" on:click=move |_| maske.neu(None)>
-                    <Icon icon=icondata::LuPlus/>
-                    "Neues Projekt"
-                </button>
-            </Show>
-        </Seitenkopf>
-
-        <Fehlermeldung meldung=listen_meldung/>
-
-        <div class="card border border-base-300 bg-base-100">
-            <div class="overflow-x-auto">
-                <Transition fallback=Laden>
-                    {move || Suspend::new(async move {
-                        match projekte.await {
-                            Ok(liste) if liste.is_empty() => view! {
-                                <Leer symbol=icondata::LuFolderKanban text="Noch keine Projekte erfasst."/>
-                            }.into_any(),
-                            Ok(liste) => {
-                                // Nach Bauobjekt gruppieren (Reihenfolge: Bauobjekt, dann Projektnummer)
-                                let mut gruppen: Vec<(String, Vec<Projekt>)> = Vec::new();
-                                let mut sortiert = liste;
-                                sortiert.sort_by(|a, b| {
-                                    (&a.bauobjekt_bezeichnung, &a.projektnummer).cmp(&(&b.bauobjekt_bezeichnung, &b.projektnummer))
-                                });
-                                for p in sortiert {
-                                    match gruppen.last_mut() {
-                                        Some((name, projekte)) if *name == p.bauobjekt_bezeichnung => projekte.push(p),
-                                        _ => gruppen.push((p.bauobjekt_bezeichnung.clone(), vec![p])),
-                                    }
-                                }
-                                view! {
-                                    <table class="table max-sm:table-sm">
-                                        <thead>
-                                            <tr>
-                                                <th>"Bauobjekt / Projekt"</th>
-                                                <th class="hidden md:table-cell">"Bauherr"</th>
-                                                <th class="hidden lg:table-cell">"Architekt"</th>
-                                                <th></th>
-                                            </tr>
-                                        </thead>
-                                        {gruppen.into_iter().map(|(objekt, projekte)| view! {
-                                            <tbody class="border-b border-base-300 last:border-b-0">
-                                                <tr class="bg-base-200/60">
-                                                    <td colspan="4">
-                                                        <div class="flex items-center gap-2">
-                                                            <Icon icon=icondata::LuBuilding2 attr:class="shrink-0 opacity-60"/>
-                                                            <span class="font-semibold">{objekt}</span>
-                                                            <span class="badge badge-sm badge-ghost">{projekte.len()}</span>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                                {projekte.into_iter().map(|p| view! {
-                                                    <ProjektZeile projekt=p maske loeschen darf_bearbeiten darf_loeschen/>
-                                                }).collect_view()}
-                                            </tbody>
-                                        }).collect_view()}
-                                    </table>
-                                }.into_any()
-                            }
-                            Err(e) => view! { <div class="alert alert-error m-4">{meldung_aus(e)}</div> }.into_any(),
-                        }
-                    })}
-                </Transition>
-            </div>
-        </div>
-
-        <ProjektDialog maske speichern/>
-    }
-}
-
 /// Ein Projekt als eingerückte Zeile unter seinem Bauobjekt.
 #[component]
 fn ProjektZeile(
@@ -415,8 +310,7 @@ fn ProjektZeile(
     }
 }
 
-/// Zustand der Projekt-Eingabemaske; die Projekt- und die Bauobjektseite
-/// nutzen dieselbe Maske.
+/// Zustand der Projekt-Eingabemaske.
 #[derive(Clone, Copy)]
 pub struct ProjektMaske {
     offen: RwSignal<bool>,

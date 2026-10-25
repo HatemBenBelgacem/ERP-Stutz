@@ -292,7 +292,7 @@ impl Bereich {
     pub const PERSONAL: [Bereich; 4] = [Bereich::Termine, Bereich::Kurse, Bereich::Anmeldung, Bereich::Mitarbeiter];
     /// Reiter unter „Personal › Weiterbildung“
     pub const WEITERBILDUNG: [Bereich; 3] = [Bereich::Termine, Bereich::Kurse, Bereich::Anmeldung];
-    /// Reiter unter „Projekte“
+    /// Bereiche der Seite „Projekte“ (Baumansicht Bauobjekt → Projekte)
     pub const PROJEKTE: [Bereich; 2] = [Bereich::Projekte, Bereich::Bauobjekte];
     pub const HAUPTBEREICHE: [Bereich; 11] = [
         Bereich::Termine,
@@ -374,8 +374,8 @@ impl Bereich {
             Bereich::Adressen => "/adressen",
             Bereich::Einkauf => "/einkauf",
             Bereich::Lager => "/lager",
-            Bereich::Projekte => "/projekte/liste",
-            Bereich::Bauobjekte => "/projekte/bauobjekte",
+            Bereich::Projekte => "/projekte",
+            Bereich::Bauobjekte => "/projekte",
             Bereich::Werkhof => "/werkhof",
             Bereich::Finanzen => "/finanzen",
             Bereich::Benutzer => "/einstellungen/benutzer",

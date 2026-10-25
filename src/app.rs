@@ -15,7 +15,7 @@ use crate::components::kurs::KursSeite;
 use crate::components::layout::Layout;
 use crate::components::mitarbeiter::MitarbeiterSeite;
 use crate::components::modul::ModulSeite;
-use crate::components::projekt::{BauobjektSeite, ProjektSeite, ProjekteSeite, ProjekteStart};
+use crate::components::projekt::BauobjektSeite;
 use crate::components::rolle::RollenSeite;
 use crate::components::termin::TerminSeite;
 use crate::components::termin_anmeldung::TerminAnmeldungSeite;
@@ -175,17 +175,13 @@ pub fn App() -> impl IntoView {
                         path=StaticSegment("lager")
                         view=|| view! { <Bereichsschutz bereich=Bereich::Lager><ModulSeite bereich=Bereich::Lager/></Bereichsschutz> }
                     />
-                    <ParentRoute path=StaticSegment("projekte") view=ProjekteSeite>
-                        <Route path=StaticSegment("") view=ProjekteStart/>
-                        <Route
-                            path=StaticSegment("liste")
-                            view=|| view! { <Bereichsschutz bereich=Bereich::Projekte><ProjektSeite/></Bereichsschutz> }
-                        />
-                        <Route
-                            path=StaticSegment("bauobjekte")
-                            view=|| view! { <Bereichsschutz bereich=Bereich::Bauobjekte><BauobjektSeite/></Bereichsschutz> }
-                        />
-                    </ParentRoute>
+                    // Bauobjekte mit ihren Projekten; sichtbar mit Recht auf eines von beiden
+                    <Route
+                        path=StaticSegment("projekte")
+                        view=|| view! {
+                            <Bereichsschutz bereich=Bereich::Bauobjekte oder=Bereich::Projekte><BauobjektSeite/></Bereichsschutz>
+                        }
+                    />
                     <Route
                         path=StaticSegment("werkhof")
                         view=|| view! { <Bereichsschutz bereich=Bereich::Werkhof><ModulSeite bereich=Bereich::Werkhof/></Bereichsschutz> }
@@ -232,9 +228,19 @@ fn Startseite() -> impl IntoView {
 /// Route die Weiterleitung zur Anmeldung – so leitet nach dem Abmelden nur
 /// eine Stelle weiter.
 #[component]
-fn Bereichsschutz(bereich: Bereich, children: ChildrenFn) -> impl IntoView {
+fn Bereichsschutz(
+    bereich: Bereich,
+    /// Weiterer Bereich, dessen Recht „Sehen“ ebenfalls genügt
+    #[prop(optional)]
+    oder: Option<Bereich>,
+    children: ChildrenFn,
+) -> impl IntoView {
     let sitzung = use_sitzung();
-    let zugang = Memo::new(move |_| sitzung.benutzer().map(|b| (b.sieht(bereich), b.startseite())));
+    let zugang = Memo::new(move |_| {
+        sitzung
+            .benutzer()
+            .map(|b| (b.sieht(bereich) || oder.is_some_and(|o| b.sieht(o)), b.startseite()))
+    });
     view! {
         <Transition>
             {move || match zugang.get() {
