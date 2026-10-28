@@ -26,7 +26,11 @@ Konkrete, ausführbare Aufgaben. Jede Aufgabe gehört zu einem Feature aus
 | T-004 | Spezifikation für das nächste Feature nach `features/_vorlage.md` schreiben | F-010 | Muss | |
 | T-005 | Ganzes Projekt einmal mit `cargo fmt` formatieren (175 Abweichungen), eigener Commit | Technik | Soll | |
 | T-006 | Clippy-Warnungen beheben (26, davon 17 `module_inception` durch `components/<x>/<x>.rs`) | Technik | Soll | |
-| T-007 | <Aufgabe> | <F-…> | | |
+| T-007 | Umstellung Schritt 1: `backend/db.rs`, `backend/gemeinsam.rs`, `Bereich`/`Aktion` nach `backend/rolle/model.rs` (siehe `docs/system-design.md`, Abschnitt 7) | Technik | Soll | |
+| T-008 | Umstellung Schritt 2: Modell `geschaeftsbereich` in neue Struktur | Technik | Soll | T-007 |
+| T-009 | Umstellung Schritte 3–8: `adresse`, `kurs`, `mitarbeiter`, `bauobjekt`/`projekt`/`buchung`, `termin`, `rolle`/`benutzer`/`auth` (je ein PR) | Technik | Soll | T-008 |
+| T-010 | Umstellung Schritt 9: `backend/api.rs`, `backend/projekte.rs`, `models.rs` entfernen | Technik | Soll | T-009 |
+| T-011 | <Aufgabe> | <F-…> | | |
 
 ## Erledigt
 

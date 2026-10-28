@@ -29,5 +29,5 @@ Abschnitt für Abschnitt gegen die Vorlage prüfen und dem Benutzer eine Liste g
 
 Aus Abschnitt 16 der Spezifikation Zeilen in `task.md` unter „Offen“ anlegen:
 fortlaufende ID `T-XXX`, Feature-ID, Priorität, Abhängigkeiten.
-Typische Reihenfolge: Migration (Skill `migration`) → Modelle → Server-Funktionen → UI/Route → Tests (Skill `test`) → Doku.
+Typische Reihenfolge nach `docs/system-design.md`, Abschnitt 6: Migration (Skill `migration`) → `model.rs` → `repository.rs` → `server_fns.rs` → Komponenten `liste_`/`formular_`/`neu_`/`bearbeiten_`/`loeschen_` → Route → Tests (Skill `test`) → Doku.
 Status in `features/index.md` auf „✅ Bereit“ setzen, wenn keine offenen Fragen mehr bestehen.

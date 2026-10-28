@@ -115,7 +115,7 @@ Bezug: [docs/data-model.md](../docs/data-model.md). Nach der Umsetzung dort nach
 
 | Route | Komponente | Menü | Schutz |
 |---|---|---|---|
-| `/<pfad>` | `src/components/<modul>/<modul>.rs` | <Gruppe › Eintrag> | `Bereichsschutz bereich=Bereich::<…>` |
+| `/<pfad>` | `src/components/<modell>/liste_<modell>.rs` | <Gruppe › Eintrag> | `Bereichsschutz bereich=Bereich::<…>` |
 
 ### 8.2 Ansichten
 
@@ -144,9 +144,10 @@ Für jede Ansicht (Liste, Detail, Formular, Dialog):
 
 | Funktion | Datei | Parameter | Rückgabe | Recht | Fehlerfälle |
 |---|---|---|---|---|---|
-| `<name>_laden` | `src/backend/<modul>.rs` | | `Vec<…>` | `<bereich>.sehen` | nicht angemeldet, kein Recht |
-| `<name>_speichern` | | `<…>` | `Uuid` | `anlegen` / `bearbeiten` | Validierung, Eindeutigkeit |
-| `<name>_loeschen` | | `id: Uuid` | `()` | `<bereich>.loeschen` | Datensatz wird noch verwendet (RESTRICT) |
+| `<modelle>_laden` | `src/backend/<modell>/server_fns.rs` | | `Vec<…>` | `<bereich>.sehen` | nicht angemeldet, kein Recht |
+| `<modell>_anlegen` | | `eingabe: <Modell>Eingabe` | `Uuid` | `<bereich>.anlegen` | Validierung, Eindeutigkeit |
+| `<modell>_bearbeiten` | | `id: Uuid, eingabe: <Modell>Eingabe` | `()` | `<bereich>.bearbeiten` | Validierung, Datensatz fehlt |
+| `<modell>_loeschen` | | `id: Uuid` | `()` | `<bereich>.loeschen` | Datensatz wird noch verwendet (RESTRICT) |
 
 ### 9.2 Weitere Endpunkte und Exporte
 
@@ -195,7 +196,7 @@ Szenario: <Name> (US-1)
 
 | Ebene | Was | Wo |
 |---|---|---|
-| Unit | Reine Logik, Validierung, Rechte (`models.rs`) | `#[cfg(test)]` im Modul |
+| Unit | Validierung (`<Modell>Eingabe::pruefen`), Rechte | `#[cfg(test)]` in `model.rs` |
 | Datenbank | Migration, Constraints, Server-Funktionen | `#[sqlx::test]` (siehe Skill `test`) |
 | Manuell / UI | Abläufe aus Abschnitt 12 im Browser | Checkliste unten |
 
@@ -224,9 +225,9 @@ Manuelle Prüfliste:
 Werden in [task.md](../task.md) übernommen.
 
 - [ ] Migration
-- [ ] Modelle (`src/models.rs`)
-- [ ] Server-Funktionen (`src/backend/`)
-- [ ] Komponenten und Route (`src/components/`, `src/app.rs`)
+- [ ] Backend `src/backend/<modell>/`: `model.rs`, `repository.rs`, `server_fns.rs`, `mod.rs` (siehe [system-design.md](../docs/system-design.md))
+- [ ] Komponenten `src/components/<modell>/`: `liste_`, `formular_`, `neu_`, `bearbeiten_`, `loeschen_`
+- [ ] Route und Menü (`src/app.rs`, `components/layout`)
 - [ ] Rechte / Bereich
 - [ ] Tests
 - [ ] `docs/data-model.md` nachführen

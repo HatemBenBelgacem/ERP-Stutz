@@ -31,7 +31,8 @@ Migrationen liegen in `migrations/` und laufen beim Start der App automatisch
 
 ## Nach dem Anlegen
 
-1. Rust-Modelle in `src/models.rs` und SQL in `src/backend/` anpassen.
+1. `model.rs` und `repository.rs` des Modells unter `src/backend/<modell>/` anpassen
+   (Aufbau siehe `docs/system-design.md`; noch nicht umgestellte Modelle liegen in `src/models.rs` bzw. `src/backend/api.rs`).
 2. Skill `build` ausführen.
 3. Migration prüfen, wenn eine Datenbank verfügbar ist: App starten oder Datenbank-Test mit
    `#[sqlx::test]` (Skill `test`).
