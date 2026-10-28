@@ -71,7 +71,6 @@ src/
 
 | Vorgabe | Umsetzung | Grund |
 |---|---|---|
-| `pub.rs` | `mod.rs` | `pub` ist ein reserviertes Wort in Rust. Eine Datei `pub.rs` liesse sich nur als `mod r#pub;` einbinden. `mod.rs` erfüllt denselben Zweck: Es legt fest, was von aussen sichtbar ist. |
 | `löschen_<name>` | `loeschen_<name>.rs` | Rust erlaubt keine Umlaute in Modulnamen ohne `#[path]` (Fehler E0754). Der Code schreibt ohnehin schon `loeschen`, `geschaeftsbereich`. |
 | – | `liste_<modell>.rs` | **Ergänzt.** Irgendwo muss die Seite mit der Tabelle liegen, die die Dialoge öffnet. |
 | – | `formular_<modell>.rs` | **Ergänzt.** Neu und Bearbeiten haben dieselben Felder. Ohne gemeinsame Datei würden sie doppelt gepflegt. |
