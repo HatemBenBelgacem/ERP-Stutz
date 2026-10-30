@@ -8,6 +8,7 @@ use leptos_router::components::{
 use crate::backend::auth::{Abmelden, Anmelden, Registrieren, aktueller_benutzer_laden};
 use crate::components::adresse::AdresseSeite;
 use crate::components::anmeldung::{AnmeldeSeite, RegistrierSeite};
+use crate::components::artikel::ArtikelSeite;
 use crate::components::benutzer::BenutzerSeite;
 use crate::components::buchung::{BuchungSeite, StundenSeite};
 use crate::components::einstellungen::{EinstellungenSeite, EinstellungenStart};
@@ -192,10 +193,16 @@ pub fn App() -> impl IntoView {
                         path=StaticSegment("einkauf")
                         view=|| view! { <Bereichsschutz bereich=Bereich::Einkauf><ModulSeite bereich=Bereich::Einkauf/></Bereichsschutz> }
                     />
-                    <Route
-                        path=StaticSegment("lager")
-                        view=|| view! { <Bereichsschutz bereich=Bereich::Lager><ModulSeite bereich=Bereich::Lager/></Bereichsschutz> }
-                    />
+                    <ParentRoute path=StaticSegment("lager") view=Outlet>
+                        <Route
+                            path=StaticSegment("")
+                            view=|| view! { <Bereichsschutz bereich=Bereich::Lager><ModulSeite bereich=Bereich::Lager/></Bereichsschutz> }
+                        />
+                        <Route
+                            path=StaticSegment("artikel")
+                            view=|| view! { <Bereichsschutz bereich=Bereich::Lager><ArtikelSeite/></Bereichsschutz> }
+                        />
+                    </ParentRoute>
                     // Bauobjekte mit ihren Projekten; sichtbar mit Recht auf eines von beiden
                     <Route
                         path=StaticSegment("projekte")

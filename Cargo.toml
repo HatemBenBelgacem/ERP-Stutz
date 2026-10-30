@@ -15,6 +15,7 @@ console_error_panic_hook = { version = "0.1.7", optional = true }
 dotenvy = { version = "0.15.7", optional = true }
 hex = { version = "0.4.3", optional = true }
 icondata = { version = "0.7.0", default-features = false, features = ["lucide"] }
+js-sys = { version = "0.3.106", optional = true }
 leptos = "0.8.22"
 leptos_axum = { version = "0.8.10", optional = true }
 leptos_icons = "0.7.1"
@@ -29,12 +30,12 @@ sqlx = { version = "0.9.0", features = ["runtime-tokio", "tls-rustls", "postgres
 tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros"], optional = true }
 uuid = { version = "1.28.0", features = ["serde", "v4", "js"] }
 wasm-bindgen = { version = "=0.2.129", optional = true }
-# Browser-Speicher (localStorage) für Anzeige-Einstellungen
-web-sys = { version = "0.3.106", features = ["Storage"], optional = true }
+# Browser-Speicher (localStorage) für Anzeige-Einstellungen; Dateien für Artikelbilder
+web-sys = { version = "0.3.106", features = ["Blob", "Event", "EventTarget", "File", "FileList", "FileReader", "HtmlInputElement", "Storage"], optional = true }
 
 [features]
 # Browser-Build (WebAssembly)
-hydrate = ["leptos/hydrate", "dep:console_error_panic_hook", "dep:wasm-bindgen", "dep:web-sys"]
+hydrate = ["leptos/hydrate", "dep:console_error_panic_hook", "dep:wasm-bindgen", "dep:web-sys", "dep:js-sys"]
 # Server-Build (Axum + PostgreSQL)
 ssr = [
     "dep:axum",

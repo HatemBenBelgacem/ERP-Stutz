@@ -641,6 +641,7 @@ dependencies = [
  "dotenvy",
  "hex",
  "icondata",
+ "js-sys",
  "leptos",
  "leptos_axum",
  "leptos_icons",

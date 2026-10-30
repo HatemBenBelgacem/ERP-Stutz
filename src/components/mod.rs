@@ -2,6 +2,7 @@
 
 pub mod adresse;
 pub mod anmeldung;
+pub mod artikel;
 pub mod benutzer;
 pub mod buchung;
 pub mod einstellungen;

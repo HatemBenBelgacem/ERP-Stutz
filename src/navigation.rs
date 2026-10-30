@@ -61,6 +61,12 @@ pub const NAVIGATION: [(Option<(&str, icondata::Icon)>, &[Ziel]); 2] = [
                 icon: icondata::LuWarehouse,
                 bereiche: &[Bereich::Lager],
             },
+            Ziel {
+                text: "Artikel",
+                href: "/lager/artikel",
+                icon: icondata::LuPackage,
+                bereiche: &[Bereich::Lager],
+            },
             // Baumansicht Bauobjekte → Projekte
             Ziel {
                 text: "Projekte",
@@ -116,8 +122,8 @@ mod tests {
     }
 
     #[test]
-    fn zehn_module() {
-        assert_eq!(module().len(), 10);
+    fn elf_module() {
+        assert_eq!(module().len(), 11);
     }
 
     #[test]
