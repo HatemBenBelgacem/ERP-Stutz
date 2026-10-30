@@ -4,7 +4,7 @@ use leptos::prelude::*;
 use leptos::server_fn::codec::Json;
 use uuid::Uuid;
 
-use super::model::{Artikel, ArtikelEingabe};
+use super::model::{Artikel, ArtikelEingabe, Kleidergroesse};
 #[cfg(feature = "ssr")]
 use {
     super::{fehler, repository},
@@ -17,6 +17,13 @@ use {
 pub async fn artikel_laden() -> Result<Vec<Artikel>, ServerFnError> {
     recht_pflicht(&[(Bereich::Lager, Aktion::Sehen)]).await?;
     repository::alle(pool()).await.map_err(fehler)
+}
+
+/// Auswahl der Kleidergrösse im Artikelformular
+#[server(input = Json)]
+pub async fn kleidergroessen_laden() -> Result<Vec<Kleidergroesse>, ServerFnError> {
+    recht_pflicht(&[(Bereich::Lager, Aktion::Sehen)]).await?;
+    repository::kleidergroessen(pool()).await.map_err(fehler)
 }
 
 #[server(input = Json)]

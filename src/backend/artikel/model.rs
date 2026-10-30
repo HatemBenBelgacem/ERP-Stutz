@@ -5,39 +5,12 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Grösse eines Artikels (Datentyp `artikel_groesse`)
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ArtikelGroesse {
-    #[default]
-    S,
-    M,
-    L,
-    XL,
-}
-
-impl ArtikelGroesse {
-    pub const ALLE: [ArtikelGroesse; 4] = [
-        ArtikelGroesse::S,
-        ArtikelGroesse::M,
-        ArtikelGroesse::L,
-        ArtikelGroesse::XL,
-    ];
-
-    /// Wert in der Datenbank (Typ `artikel_groesse`) und im Formular
-    pub fn schluessel(self) -> &'static str {
-        match self {
-            ArtikelGroesse::S => "S",
-            ArtikelGroesse::M => "M",
-            ArtikelGroesse::L => "L",
-            ArtikelGroesse::XL => "XL",
-        }
-    }
-
-    pub fn aus_schluessel(schluessel: &str) -> Option<ArtikelGroesse> {
-        ArtikelGroesse::ALLE
-            .into_iter()
-            .find(|g| g.schluessel() == schluessel)
-    }
+/// Kleidergrösse, z. B. „M“ (Tabelle `kleidergroesse`)
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct Kleidergroesse {
+    pub id: Uuid,
+    pub bezeichnung: String,
 }
 
 /// Artikel, wie er in der Liste steht (ohne Bilddaten)
@@ -47,7 +20,9 @@ pub struct Artikel {
     pub bezeichnung: String,
     /// Dateiname des Bildes, sofern eins hochgeladen ist
     pub bild: Option<String>,
-    pub groesse: ArtikelGroesse,
+    pub kleidergroesse_id: Uuid,
+    /// Bezeichnung der Kleidergrösse
+    pub groesse: String,
     pub erstellt_am: NaiveDateTime,
     pub geaendert_am: NaiveDateTime,
 }
@@ -86,7 +61,7 @@ pub enum BildAenderung {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct ArtikelEingabe {
     pub bezeichnung: String,
-    pub groesse: Option<ArtikelGroesse>,
+    pub kleidergroesse_id: Option<Uuid>,
     pub bild: BildAenderung,
 }
 
@@ -96,7 +71,7 @@ impl ArtikelEingabe {
         if self.bezeichnung.trim().is_empty() {
             return Err("Bitte eine Bezeichnung eingeben.".into());
         }
-        if self.groesse.is_none() {
+        if self.kleidergroesse_id.is_none() {
             return Err("Bitte eine Grösse wählen.".into());
         }
         if let BildAenderung::Neu(bild) = &self.bild {
@@ -133,12 +108,12 @@ mod tests {
 
     fn eingabe(
         bezeichnung: &str,
-        groesse: Option<ArtikelGroesse>,
+        kleidergroesse_id: Option<Uuid>,
         bild: BildAenderung,
     ) -> ArtikelEingabe {
         ArtikelEingabe {
             bezeichnung: bezeichnung.into(),
-            groesse,
+            kleidergroesse_id,
             bild,
         }
     }
@@ -152,7 +127,7 @@ mod tests {
 
     #[test]
     fn leere_bezeichnung_wird_abgelehnt() {
-        let e = eingabe("   ", Some(ArtikelGroesse::M), BildAenderung::Behalten);
+        let e = eingabe("   ", Some(Uuid::nil()), BildAenderung::Behalten);
         assert_eq!(
             e.pruefen(),
             Err("Bitte eine Bezeichnung eingeben.".to_string())
@@ -167,29 +142,25 @@ mod tests {
 
     #[test]
     fn artikel_ohne_bild_ist_gueltig() {
-        let e = eingabe(
-            "Schraube",
-            Some(ArtikelGroesse::XL),
-            BildAenderung::Entfernen,
-        );
+        let e = eingabe("Schraube", Some(Uuid::nil()), BildAenderung::Entfernen);
         assert_eq!(e.pruefen(), Ok(()));
     }
 
     #[test]
     fn jpg_und_png_sind_erlaubt() {
         assert_eq!(
-            eingabe("A", Some(ArtikelGroesse::S), upload("bild.jpg", JPG)).pruefen(),
+            eingabe("A", Some(Uuid::nil()), upload("bild.jpg", JPG)).pruefen(),
             Ok(())
         );
         assert_eq!(
-            eingabe("A", Some(ArtikelGroesse::S), upload("bild.PNG", PNG)).pruefen(),
+            eingabe("A", Some(Uuid::nil()), upload("bild.PNG", PNG)).pruefen(),
             Ok(())
         );
     }
 
     #[test]
     fn gif_wird_abgelehnt() {
-        let e = eingabe("A", Some(ArtikelGroesse::S), upload("bild.gif", JPG));
+        let e = eingabe("A", Some(Uuid::nil()), upload("bild.gif", JPG));
         assert_eq!(
             e.pruefen(),
             Err("Das Bild muss ein JPG oder PNG sein.".to_string())
@@ -198,7 +169,7 @@ mod tests {
 
     #[test]
     fn falscher_inhalt_wird_abgelehnt() {
-        let e = eingabe("A", Some(ArtikelGroesse::S), upload("bild.jpg", b"hallo"));
+        let e = eingabe("A", Some(Uuid::nil()), upload("bild.jpg", b"hallo"));
         assert_eq!(
             e.pruefen(),
             Err("Das Bild muss ein JPG oder PNG sein.".to_string())
@@ -210,7 +181,7 @@ mod tests {
         let mut daten = JPG.to_vec();
         daten.resize(BILD_MAX_BYTES, 0);
         assert_eq!(
-            eingabe("A", Some(ArtikelGroesse::S), upload("bild.jpg", &daten)).pruefen(),
+            eingabe("A", Some(Uuid::nil()), upload("bild.jpg", &daten)).pruefen(),
             Ok(())
         );
     }
@@ -219,21 +190,10 @@ mod tests {
     fn bild_ueber_zwei_mb_wird_abgelehnt() {
         let mut daten = JPG.to_vec();
         daten.resize(BILD_MAX_BYTES + 1, 0);
-        let e = eingabe("A", Some(ArtikelGroesse::S), upload("bild.jpg", &daten));
+        let e = eingabe("A", Some(Uuid::nil()), upload("bild.jpg", &daten));
         assert_eq!(
             e.pruefen(),
             Err("Das Bild ist grösser als 2 MB.".to_string())
         );
-    }
-
-    #[test]
-    fn groesse_hat_genau_vier_werte() {
-        assert_eq!(ArtikelGroesse::ALLE.len(), 4);
-        assert_eq!(
-            ArtikelGroesse::aus_schluessel("XL"),
-            Some(ArtikelGroesse::XL)
-        );
-        assert_eq!(ArtikelGroesse::aus_schluessel("xl"), None);
-        assert_eq!(ArtikelGroesse::aus_schluessel("XXL"), None);
     }
 }
