@@ -33,6 +33,13 @@ Konkrete, ausführbare Aufgaben. Jede Aufgabe gehört zu einem Feature aus
 | T-012 | Komponente `src/components/startansicht/` mit Kachelraster, Leer-Zustand und Ladeanzeige | F-010 | Muss | T-011 |
 | T-013 | Route `/` auf Startansicht umstellen, `Startseite` entfernen, `/personal` und Bereichsschutz leiten auf `/` um | F-010 | Muss | T-012 |
 | T-014 | Skill `build` und `test` ohne Fehler, AK-1 bis AK-7 im Browser prüfen | F-010 | Muss | T-013 |
+| T-015 | Migration `migrations/20261030000001_artikel.sql`: Datentyp `artikel_groesse`, Tabelle `artikel`, CHECKs | F-011 | Muss | |
+| T-016 | `Bereich::Lager` bekommt die Standardaktionen in `src/models.rs`, Unit-Test | F-011 | Muss | |
+| T-017 | Backend `src/backend/artikel/`: `model.rs` (Eingabe, Validierung, Tests), `repository.rs` (SQL, `db_`-Tests), `server_fns.rs`, `mod.rs` | F-011 | Muss | T-015 |
+| T-018 | Bild-Route `GET /artikel/{id}/bild` in `src/main.rs` | F-011 | Muss | T-017 |
+| T-019 | Komponente `src/components/artikel/`: Seite mit Liste, Dialog und Löschen | F-011 | Muss | T-017 |
+| T-020 | Route `/lager/artikel` in `src/app.rs`, Menüpunkt in `src/navigation.rs`, Test `zehn_module` auf elf anpassen, F-010 auf elf Kacheln nachführen | F-011 | Muss | T-016, T-019 |
+| T-021 | Skill `build` und `test` ohne Fehler, AK-1 bis AK-13 prüfen, `docs/data-model.md` nachführen | F-011 | Muss | T-018, T-020 |
 
 ## Erledigt
 
