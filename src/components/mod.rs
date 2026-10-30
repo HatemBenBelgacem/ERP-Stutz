@@ -14,6 +14,7 @@ pub mod mitarbeiter;
 pub mod modul;
 pub mod projekt;
 pub mod rolle;
+pub mod startansicht;
 pub mod termin;
 pub mod termin_anmeldung;
 pub mod weiterbildung;

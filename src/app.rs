@@ -1,7 +1,9 @@
 use leptos::prelude::*;
 use leptos_meta::{HashedStylesheet, MetaTags, Title, provide_meta_context};
 use leptos_router::StaticSegment;
-use leptos_router::components::{Outlet, ParentRoute, ProtectedParentRoute, Redirect, Route, Router, Routes};
+use leptos_router::components::{
+    Outlet, ParentRoute, ProtectedParentRoute, Redirect, Route, Router, Routes,
+};
 
 use crate::backend::auth::{Abmelden, Anmelden, Registrieren, aktueller_benutzer_laden};
 use crate::components::adresse::AdresseSeite;
@@ -18,6 +20,7 @@ use crate::components::mitarbeiter::MitarbeiterSeite;
 use crate::components::modul::ModulSeite;
 use crate::components::projekt::BauobjektSeite;
 use crate::components::rolle::RollenSeite;
+use crate::components::startansicht::Startansicht;
 use crate::components::termin::TerminSeite;
 use crate::components::termin_anmeldung::TerminAnmeldungSeite;
 use crate::components::weiterbildung::{WeiterbildungSeite, WeiterbildungStart};
@@ -65,7 +68,9 @@ impl Sitzung {
 
     /// `None` = lädt noch, sonst ob der Benutzer die Funktion nutzen darf.
     pub fn darf(&self, bereich: Bereich, aktion: Aktion) -> Option<bool> {
-        self.benutzer.get().map(|r| matches!(r, Ok(Some(b)) if b.darf(bereich, aktion)))
+        self.benutzer
+            .get()
+            .map(|r| matches!(r, Ok(Some(b)) if b.darf(bereich, aktion)))
     }
 
     pub fn sieht(&self, bereich: Bereich) -> Option<bool> {
@@ -74,7 +79,11 @@ impl Sitzung {
 
     /// Für Buttons: ein Recht, das reaktiv abgefragt werden kann.
     pub fn recht(self, bereich: Bereich, aktion: Aktion) -> Recht {
-        Recht { sitzung: self, bereich, aktion }
+        Recht {
+            sitzung: self,
+            bereich,
+            aktion,
+        }
     }
 
     /// Wohin umgeleitet wird, wenn eine Seite nicht erlaubt ist.
@@ -120,10 +129,21 @@ pub fn App() -> impl IntoView {
     let registrieren = ServerAction::<Registrieren>::new();
     let abmelden = ServerAction::<Abmelden>::new();
     let benutzer = Resource::new(
-        move || (anmelden.version().get(), registrieren.version().get(), abmelden.version().get()),
+        move || {
+            (
+                anmelden.version().get(),
+                registrieren.version().get(),
+                abmelden.version().get(),
+            )
+        },
         |_| aktueller_benutzer_laden(),
     );
-    let sitzung = Sitzung { benutzer, anmelden, registrieren, abmelden };
+    let sitzung = Sitzung {
+        benutzer,
+        anmelden,
+        registrieren,
+        abmelden,
+    };
     provide_context(sitzung);
 
     view! {
@@ -140,10 +160,10 @@ pub fn App() -> impl IntoView {
                     redirect_path=|| "/anmelden"
                 >
                     // Jeder Bereich nur mit dem Recht „Sehen“ (siehe Bereichsschutz)
-                    // Startseite: erster Bereich, den der Benutzer sehen darf
-                    <Route path=StaticSegment("") view=Startseite/>
+                    // Startseite: Kacheln der Module, die der Benutzer sehen darf
+                    <Route path=StaticSegment("") view=Startansicht/>
                     <ParentRoute path=StaticSegment("personal") view=Outlet>
-                        <Route path=StaticSegment("") view=Startseite/>
+                        <Route path=StaticSegment("") view=|| view! { <Redirect path="/"/> }/>
                         <ParentRoute path=StaticSegment("weiterbildung") view=WeiterbildungSeite>
                             <Route path=StaticSegment("") view=WeiterbildungStart/>
                             <Route
@@ -221,19 +241,8 @@ pub fn App() -> impl IntoView {
     }
 }
 
-/// Leitet zum ersten Bereich weiter, den der Benutzer sehen darf.
-#[component]
-fn Startseite() -> impl IntoView {
-    let sitzung = use_sitzung();
-    view! {
-        <Transition>
-            {move || sitzung.benutzer().map(|b| view! { <Redirect path=b.startseite()/> })}
-        </Transition>
-    }
-}
-
 /// Zeigt die Seite nur mit dem Recht „Sehen“ für den Bereich, sonst geht es
-/// zur ersten erlaubten Seite. Ist niemand angemeldet, übernimmt die äussere
+/// zur Startansicht. Ist niemand angemeldet, übernimmt die äussere
 /// Route die Weiterleitung zur Anmeldung – so leitet nach dem Abmelden nur
 /// eine Stelle weiter.
 #[component]
@@ -248,13 +257,13 @@ fn Bereichsschutz(
     let zugang = Memo::new(move |_| {
         sitzung
             .benutzer()
-            .map(|b| (b.sieht(bereich) || oder.is_some_and(|o| b.sieht(o)), b.startseite()))
+            .map(|b| b.sieht(bereich) || oder.is_some_and(|o| b.sieht(o)))
     });
     view! {
         <Transition>
             {move || match zugang.get() {
-                Some((true, _)) => children().into_any(),
-                Some((false, startseite)) => view! { <Redirect path=startseite/> }.into_any(),
+                Some(true) => children().into_any(),
+                Some(false) => view! { <Redirect path="/"/> }.into_any(),
                 None => ().into_any(),
             }}
         </Transition>
