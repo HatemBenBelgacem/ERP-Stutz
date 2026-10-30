@@ -148,7 +148,7 @@ fn Sidebar(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl Int
                                     .iter()
                                     .map(|&ziel| view! {
                                         <Show when=move || sieht(&ziel)>
-                                            <NavEintrag href=ziel.href text=ziel.text icon=ziel.icon exact=false eingeklappt mobil_offen/>
+                                            <NavEintrag href=ziel.href text=ziel.text icon=ziel.icon exact=false unterpunkt=ziel.unterpunkt eingeklappt mobil_offen/>
                                         </Show>
                                     })
                                     .collect_view()
@@ -246,10 +246,20 @@ fn NavEintrag(
     /// `false`: auch auf Unterseiten als aktiv markieren
     #[prop(default = true)]
     exact: bool,
+    /// Eingerückt unter dem Eintrag davor (nur mit ausgeklappter Leiste)
+    #[prop(default = false)]
+    unterpunkt: bool,
 ) -> impl IntoView {
     let beschriftung = move || beschriftung_klassen(eingeklappt.get());
+    let einzug = move || {
+        if unterpunkt && !eingeklappt.get() {
+            "ps-7 md:max-lg:ps-0"
+        } else {
+            ""
+        }
+    };
     view! {
-        <li on:click=move |_| mobil_offen.set(false)>
+        <li class=einzug on:click=move |_| mobil_offen.set(false)>
             <A
                 href=href
                 exact=exact

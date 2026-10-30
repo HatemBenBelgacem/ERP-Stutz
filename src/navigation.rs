@@ -10,6 +10,8 @@ pub struct Ziel {
     pub href: &'static str,
     pub icon: icondata::Icon,
     pub bereiche: &'static [Bereich],
+    /// Eingerückt unter dem Eintrag davor in der Seitenleiste
+    pub unterpunkt: bool,
 }
 
 impl Ziel {
@@ -31,12 +33,14 @@ pub const NAVIGATION: [(Option<(&str, icondata::Icon)>, &[Ziel]); 2] = [
                 href: "/personal/weiterbildung",
                 icon: icondata::LuGraduationCap,
                 bereiche: &Bereich::WEITERBILDUNG,
+                unterpunkt: false,
             },
             Ziel {
                 text: "Mitarbeiter",
                 href: "/personal/mitarbeiter",
                 icon: icondata::LuUsers,
                 bereiche: &[Bereich::Mitarbeiter],
+                unterpunkt: false,
             },
         ],
     ),
@@ -48,24 +52,29 @@ pub const NAVIGATION: [(Option<(&str, icondata::Icon)>, &[Ziel]); 2] = [
                 href: "/adressen",
                 icon: icondata::LuMapPin,
                 bereiche: &[Bereich::Adressen],
+                unterpunkt: false,
             },
             Ziel {
                 text: "Einkauf",
                 href: "/einkauf",
                 icon: icondata::LuShoppingCart,
                 bereiche: &[Bereich::Einkauf],
+                unterpunkt: false,
             },
             Ziel {
                 text: "Lager",
                 href: "/lager",
                 icon: icondata::LuWarehouse,
                 bereiche: &[Bereich::Lager],
+                unterpunkt: false,
             },
+            // Unter Lager eingerückt
             Ziel {
                 text: "Artikel",
                 href: "/lager/artikel",
                 icon: icondata::LuPackage,
                 bereiche: &[Bereich::Lager],
+                unterpunkt: true,
             },
             // Baumansicht Bauobjekte → Projekte
             Ziel {
@@ -73,30 +82,35 @@ pub const NAVIGATION: [(Option<(&str, icondata::Icon)>, &[Ziel]); 2] = [
                 href: "/projekte",
                 icon: icondata::LuConstruction,
                 bereiche: &Bereich::PROJEKTE,
+                unterpunkt: false,
             },
             Ziel {
                 text: "Stunden erfassen",
                 href: "/stunden-erfassen",
                 icon: icondata::LuClockPlus,
                 bereiche: &[Bereich::Stunden],
+                unterpunkt: false,
             },
             Ziel {
                 text: "Buchungen",
                 href: "/buchungen",
                 icon: icondata::LuReceipt,
                 bereiche: &[Bereich::Buchungen],
+                unterpunkt: false,
             },
             Ziel {
                 text: "Werkhof",
                 href: "/werkhof",
                 icon: icondata::LuTruck,
                 bereiche: &[Bereich::Werkhof],
+                unterpunkt: false,
             },
             Ziel {
                 text: "Finanzen",
                 href: "/finanzen",
                 icon: icondata::LuWallet,
                 bereiche: &[Bereich::Finanzen],
+                unterpunkt: false,
             },
         ],
     ),
@@ -124,6 +138,18 @@ mod tests {
     #[test]
     fn elf_module() {
         assert_eq!(module().len(), 11);
+    }
+
+    #[test]
+    fn artikel_ist_unterpunkt_von_lager() {
+        let alle = module();
+        let position = alle
+            .iter()
+            .position(|z| z.text == "Artikel")
+            .expect("Artikel fehlt");
+        assert!(alle[position].unterpunkt);
+        assert_eq!(alle[position - 1].text, "Lager");
+        assert!(!alle[position - 1].unterpunkt);
     }
 
     #[test]

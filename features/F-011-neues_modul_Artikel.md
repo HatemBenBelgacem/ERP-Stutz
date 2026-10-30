@@ -130,7 +130,7 @@ Entfällt, weil die Tabelle keinen Fremdschlüssel hat.
 
 | Route | Komponente | Menü | Schutz |
 |---|---|---|---|
-| `/lager/artikel` | `src/components/artikel/artikel.rs` (`ArtikelSeite`) | Eigener Eintrag „Artikel“ nach „Lager“ in `NAVIGATION` (`src/navigation.rs`), Icon aus `icondata` (z. B. `LuPackage`) | `Bereichsschutz bereich=Bereich::Lager` |
+| `/lager/artikel` | `src/components/artikel/artikel.rs` (`ArtikelSeite`) | Unterpunkt „Artikel“ unter „Lager“ in `NAVIGATION` (`src/navigation.rs`, `unterpunkt: true`), in der Seitenleiste eingerückt; Icon aus `icondata` (`LuPackage`) | `Bereichsschutz bereich=Bereich::Lager` |
 
 In `src/app.rs` wird die Route `lager` zur verschachtelten Route: Bei `""` bleibt die Platzhalterseite `ModulSeite`, bei `artikel` steht die Artikelseite. Der Menüpunkt „Lager“ (`/lager`) bleibt unverändert.
 
@@ -306,7 +306,7 @@ Manuelle Prüfliste:
 | 9 | Sollen `erstellt_am` und `geaendert_am` geführt werden? | entschieden | Ja, beide. | 2026-10-30 |
 | 10 | Gibt es bestehende Artikel, die übernommen werden? | entschieden | Nein, die Tabelle startet leer. | 2026-10-30 |
 | 11 | Wo liegt die Artikelseite? | entschieden | Unter `/lager/artikel`. `/lager` bleibt Platzhalter. | 2026-10-30 |
-| 12 | Wie gelangt man im Menü zu Artikel? | entschieden | Eigener Menüpunkt „Artikel“ unter Lager mit eigener Kachel. Die Startansicht zeigt damit elf statt zehn Module (siehe F-010). | 2026-10-30 |
+| 12 | Wie gelangt man im Menü zu Artikel? | entschieden | Unterpunkt „Artikel“ unter Lager, in der Seitenleiste eingerückt, mit eigener Kachel. Die Startansicht zeigt damit elf statt zehn Module (siehe F-010). | 2026-10-30 |
 | 13 | Standardentscheidungen von Claude, bitte prüfen | entschieden (Vorschlag) | Sortierung nach Bezeichnung aufsteigend; Grösse ohne Vorauswahl; Löschen nach Bestätigung; „Bild entfernen“ möglich; keine Suche und kein Filter; kein Bild in der Liste; Bildformat am Dateikopf prüfen. | 2026-10-30 |
 
 ## 16. Aufgaben
@@ -327,3 +327,4 @@ Werden in [task.md](../task.md) übernommen (T-015 bis T-021).
 |---|---|---|---|
 | 2026-10-30 | 0.1 | Erster Entwurf nach Vorlage, offene Fragen in Abschnitt 15 | Claude |
 | 2026-10-30 | 0.2 | Fragen geklärt (Umfang mit Oberfläche, Bereich Lager, Bild in der Datenbank), Abschnitte ergänzt, Aufgaben abgeleitet | Claude |
+| 2026-10-30 | 0.3 | Menüpunkt „Artikel“ als eingerückter Unterpunkt unter Lager | Claude |
