@@ -113,8 +113,7 @@ Kacheln in der Reihenfolge des Menüs:
 | Mitarbeiter | `/personal/mitarbeiter` | `mitarbeiter` |
 | Adressen | `/adressen` | `adressen` |
 | Einkauf | `/einkauf` | `einkauf` |
-| Lager | `/lager` | `lager` |
-| Artikel | `/lager/artikel` | `lager` (F-011) |
+| Artikel | `/lager/artikel` | `lager` (F-011, in der Gruppe Lager) |
 | Projekte | `/projekte` | `projekte` oder `bauobjekte` |
 | Stunden erfassen | `/stunden-erfassen` | `stunden` |
 | Buchungen | `/buchungen` | `buchungen` |
@@ -180,7 +179,7 @@ Entfällt, weil keine externen Systeme beteiligt sind.
 | Benutzer hat nur Rechte für Bauobjekte (ohne Projekte) | Kachel „Projekte“ ist sichtbar. `/projekte` öffnet sich über den Bereichsschutz mit „oder“. |
 | Modulseite ohne Recht aufgerufen, z. B. über ein Lesezeichen | Bereichsschutz leitet auf `/` um. |
 | Recht während der Sitzung entzogen | Die Kachel bleibt bis zur nächsten Seitenladung. Beim Öffnen leitet der Bereichsschutz auf `/` um. |
-| Admin | Alle elf Kacheln sind sichtbar, auch ohne einzelne Rechte. |
+| Admin | Alle zehn Kacheln sind sichtbar, auch ohne einzelne Rechte. |
 | Sitzung abgelaufen | Weiterleitung zu `/anmelden` (unverändert). |
 
 ## 12. Akzeptanzkriterien
@@ -206,7 +205,7 @@ Szenario: Kein freigegebenes Modul (US-1)
 Szenario: Admin sieht alle Module (US-1)
   Angenommen ein Benutzer ist Admin
   Wenn er / öffnet
-  Dann sieht er alle elf Kacheln
+  Dann sieht er alle zehn Kacheln
 
 Szenario: Modulseite ohne Recht (US-1)
   Angenommen ein Benutzer hat kein Recht mitarbeiter.sehen
@@ -217,7 +216,7 @@ Szenario: Modulseite ohne Recht (US-1)
 - [ ] AK-1: Nach dem Login zeigt `/` die Kacheln, ohne Weiterleitung auf eine Modulseite.
 - [ ] AK-2: Jede Kachel führt zur Route aus Abschnitt 8.1.
 - [ ] AK-3: Ein Benutzer ohne `sehen`-Recht sieht keine Kachel, sondern den Leer-Hinweis.
-- [ ] AK-4: Ein Admin sieht alle elf Kacheln.
+- [ ] AK-4: Ein Admin sieht alle zehn Kacheln.
 - [ ] AK-5: Eine Modulseite ohne Recht leitet auf `/` um.
 - [ ] AK-6: `/personal` leitet auf `/` um.
 - [ ] AK-7: Kacheln und Menüpunkte kommen aus derselben Liste (`NAVIGATION`).
@@ -233,7 +232,7 @@ Szenario: Modulseite ohne Recht (US-1)
 
 Manuelle Prüfliste:
 
-- [ ] Als Admin: alle elf Kacheln
+- [ ] Als Admin: alle zehn Kacheln
 - [ ] Als Benutzer mit nur `termine.sehen`: nur Weiterbildung
 - [ ] Ohne Recht: Leer-Hinweis
 
@@ -272,3 +271,4 @@ Werden in [task.md](../task.md) übernommen (T-011 bis T-014).
 | 2026-10-30 | 0.1 | Erster Entwurf | Benutzer |
 | 2026-10-30 | 0.2 | Offene Fragen entschieden, Abschnitte vervollständigt, Aufgaben abgeleitet | Claude |
 | 2026-10-30 | 0.3 | Menüpunkt und Kachel „Artikel“ (F-011) dazu: elf statt zehn Module | Claude |
+| 2026-10-30 | 0.4 | Lager als Gruppe wie Personal, Kachel „Lager“ entfällt: wieder zehn Module | Claude |

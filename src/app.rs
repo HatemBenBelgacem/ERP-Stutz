@@ -194,10 +194,7 @@ pub fn App() -> impl IntoView {
                         view=|| view! { <Bereichsschutz bereich=Bereich::Einkauf><ModulSeite bereich=Bereich::Einkauf/></Bereichsschutz> }
                     />
                     <ParentRoute path=StaticSegment("lager") view=Outlet>
-                        <Route
-                            path=StaticSegment("")
-                            view=|| view! { <Bereichsschutz bereich=Bereich::Lager><ModulSeite bereich=Bereich::Lager/></Bereichsschutz> }
-                        />
+                        <Route path=StaticSegment("") view=|| view! { <Redirect path="/lager/artikel"/> }/>
                         <Route
                             path=StaticSegment("artikel")
                             view=|| view! { <Bereichsschutz bereich=Bereich::Lager><ArtikelSeite/></Bereichsschutz> }
