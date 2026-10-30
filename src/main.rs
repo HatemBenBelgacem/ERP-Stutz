@@ -28,11 +28,15 @@ async fn main() {
         .route("/auth/microsoft/callback", axum::routing::get(erp_stutz::backend::microsoft::rueckruf))
         // Teilnehmerliste eines Termins als PDF
         .route("/termine/{id}/teilnehmerliste.pdf", axum::routing::get(erp_stutz::backend::pdf::teilnehmerliste))
+        // Bild eines Artikels (JPG oder PNG)
+        .route("/artikel/{id}/bild", axum::routing::get(erp_stutz::backend::artikel::bild_ausliefern))
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
             move || shell(leptos_options.clone())
         })
         .fallback(leptos_axum::file_and_error_handler(shell))
+        // Bilder reisen als JSON durch die Server-Funktion und sind damit grösser als die Standardgrenze
+        .layer(axum::extract::DefaultBodyLimit::max(10 * 1024 * 1024))
         .with_state(leptos_options);
 
     log!("Server läuft auf http://{addr}");

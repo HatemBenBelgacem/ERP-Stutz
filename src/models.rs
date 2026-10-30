@@ -440,7 +440,7 @@ impl Bereich {
     pub fn aktionen(self) -> &'static [Aktion] {
         match self {
             // Noch ohne Inhalte, daher nur sichtbar schalten
-            Bereich::Einkauf | Bereich::Lager | Bereich::Werkhof | Bereich::Finanzen => {
+            Bereich::Einkauf | Bereich::Werkhof | Bereich::Finanzen => {
                 &[Aktion::Sehen]
             }
             // „Sehen“ heisst hier: eigene Stunden erfassen dürfen
@@ -507,3 +507,13 @@ pub fn alle_rechte() -> Vec<String> {
 
 pub const PFAD_KEIN_ZUGRIFF: &str = "/kein-zugriff";
 pub const PASSWORT_MIN_LAENGE: usize = 8;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lager_hat_die_standardaktionen() {
+        assert_eq!(Bereich::Lager.aktionen(), Aktion::STANDARD.as_slice());
+    }
+}

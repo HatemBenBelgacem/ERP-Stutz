@@ -1,6 +1,6 @@
 # Datenmodell
 
-Stand nach allen Migrationen in `migrations/` (bis `20261029000001_mitarbeiter_beziehungen.sql`).
+Stand nach allen Migrationen in `migrations/` (bis `20261030000001_artikel.sql`).
 Datenbank: PostgreSQL (über `sqlx`).
 
 Legende: **PK** = Primärschlüssel, **FK** = Fremdschlüssel, **UQ** = eindeutig (UNIQUE).
@@ -24,12 +24,14 @@ Legende: **PK** = Primärschlüssel, **FK** = Fremdschlüssel, **UQ** = eindeuti
 | [`benutzer`](#benutzer) | Benutzerkonten für die Anmeldung |
 | [`rolle`](#rolle) | Rollen mit Rechten |
 | [`sitzung`](#sitzung) | Angemeldete Sitzungen |
+| [`artikel`](#artikel) | Artikel mit Bezeichnung, optionalem Bild und Grösse |
 
 ## Eigene Datentypen
 
 | Typ | Art | Werte |
 |---|---|---|
 | `termin_status` | ENUM | `neu`, `teamchefs_informiert`, `laufend`, `beendet` |
+| `artikel_groesse` | ENUM | `S`, `M`, `L`, `XL` |
 
 ## Tabellen
 
@@ -165,6 +167,18 @@ Legende: **PK** = Primärschlüssel, **FK** = Fremdschlüssel, **UQ** = eindeuti
 | `token_hash` | `TEXT` | nein | | PK (SHA-256-Hash des Cookie-Tokens) |
 | `benutzer_id` | `UUID` | nein | | FK → `benutzer.id` |
 | `laeuft_ab` | `TIMESTAMP` | nein | | |
+
+### `artikel`
+
+| Spalte | Datentyp | Null | Standard | Schlüssel / Bedingung |
+|---|---|---|---|---|
+| `id` | `UUID` | nein | `gen_random_uuid()` | PK |
+| `bezeichnung` | `TEXT` | nein | | CHECK `btrim(bezeichnung) <> ''` |
+| `bild` | `TEXT` | ja | | Dateiname des Bildes |
+| `bild_daten` | `BYTEA` | ja | | Inhalt des Bildes, höchstens 2 MB (Grenze prüft der Server); CHECK `(bild IS NULL) = (bild_daten IS NULL)` |
+| `groesse` | `artikel_groesse` | nein | | |
+| `erstellt_am` | `TIMESTAMP` | nein | `now()` | |
+| `geaendert_am` | `TIMESTAMP` | nein | `now()` | |
 
 ## Fremdschlüssel
 
