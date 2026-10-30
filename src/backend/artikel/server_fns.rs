@@ -4,7 +4,7 @@ use leptos::prelude::*;
 use leptos::server_fn::codec::Json;
 use uuid::Uuid;
 
-use super::model::{Artikel, ArtikelEingabe, Kleidergroesse};
+use super::model::{Artikel, ArtikelEingabe};
 #[cfg(feature = "ssr")]
 use {
     super::{fehler, repository},
@@ -19,33 +19,32 @@ pub async fn artikel_laden() -> Result<Vec<Artikel>, ServerFnError> {
     repository::alle(pool()).await.map_err(fehler)
 }
 
-/// Auswahl der Kleidergrösse im Artikelformular
-#[server(input = Json)]
-pub async fn kleidergroessen_laden() -> Result<Vec<Kleidergroesse>, ServerFnError> {
-    recht_pflicht(&[(Bereich::Lager, Aktion::Sehen)]).await?;
-    repository::kleidergroessen(pool()).await.map_err(fehler)
-}
-
 #[server(input = Json)]
 pub async fn artikel_anlegen(eingabe: ArtikelEingabe) -> Result<Uuid, ServerFnError> {
     recht_pflicht(&[(Bereich::Lager, Aktion::Anlegen)]).await?;
     eingabe.pruefen().map_err(ServerFnError::new)?;
-    repository::einfuegen(pool(), &eingabe)
+    let mut tx = pool().begin().await.map_err(fehler)?;
+    let id = repository::einfuegen(&mut tx, &eingabe)
         .await
-        .map_err(fehler)
+        .map_err(fehler)?;
+    tx.commit().await.map_err(fehler)?;
+    Ok(id)
 }
 
 #[server(input = Json)]
 pub async fn artikel_bearbeiten(id: Uuid, eingabe: ArtikelEingabe) -> Result<(), ServerFnError> {
     recht_pflicht(&[(Bereich::Lager, Aktion::Bearbeiten)]).await?;
     eingabe.pruefen().map_err(ServerFnError::new)?;
-    if repository::aktualisieren(pool(), id, &eingabe)
+    let mut tx = pool().begin().await.map_err(fehler)?;
+    if repository::aktualisieren(&mut tx, id, &eingabe)
         .await
         .map_err(fehler)?
         == 0
     {
+        // Die Transaktion wird beim Verlassen der Funktion zurückgerollt
         return Err(ServerFnError::new("Der Artikel existiert nicht mehr."));
     }
+    tx.commit().await.map_err(fehler)?;
     Ok(())
 }
 

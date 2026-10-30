@@ -35,7 +35,7 @@ zeigen aber nur eine Platzhalterseite (`ModulSeite`).
 | F-012 | <Feature> | Werkhof | Kann | 💡 | | | |
 | F-013 | <Feature> | Finanzen | Soll | 💡 | | F-009 | |
 | F-014 | <Feature> | Einkauf | Muss | 💡 | <v0.2> | | |
-| F-015 | Kleidergrösse als Tabelle (ersetzt Enum der Artikelgrösse) | Lager | Soll | 📝 | – | F-011 | [F-015](F-015-kleidergroesse.md) |
+| F-015 | Grössen je Artikel als Text (1:N) | Lager | Soll | 📝 | – | F-011 | [F-015](F-015-kleidergroesse.md) |
 
 ## Meilensteine
 

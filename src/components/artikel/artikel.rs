@@ -11,7 +11,7 @@ use crate::app::use_sitzung;
 use crate::backend::artikel::BildUpload;
 use crate::backend::artikel::{
     ArtikelAnlegen, ArtikelBearbeiten, ArtikelEingabe, ArtikelLoeschen, BildAenderung,
-    artikel_laden, kleidergroessen_laden,
+    artikel_laden,
 };
 use crate::components::gemeinsam::{
     Dialog, DialogAktionen, Fehlermeldung, Laden, Leer, Seitenkopf, ZeilenAktionen, bestaetigt,
@@ -39,12 +39,17 @@ pub fn ArtikelSeite() -> impl IntoView {
         |_| artikel_laden(),
     );
 
-    let kleidergroessen = Resource::new(|| (), |_| kleidergroessen_laden());
-
     let dialog_offen = RwSignal::new(false);
     let bearbeite = RwSignal::new(None::<Uuid>);
     let bezeichnung = RwSignal::new(String::new());
-    let groesse = RwSignal::new(String::new());
+    // Grössen als Textfelder. Jedes Feld hat eine Kennung, damit sich genau dieses entfernen lässt.
+    let naechste_zeile = RwSignal::new(0_u32);
+    let groessen = RwSignal::new(Vec::<(u32, RwSignal<String>)>::new());
+    let neue_zeile = move |text: String| {
+        let kennung = naechste_zeile.get_untracked();
+        naechste_zeile.set(kennung + 1);
+        (kennung, RwSignal::new(text))
+    };
     let bild = RwSignal::new(BildAenderung::Behalten);
     // Dateiname des gespeicherten Bildes; der Zeitstempel verhindert veraltete Vorschauen im Cache
     let bild_name = RwSignal::new(None::<String>);
@@ -55,7 +60,7 @@ pub fn ArtikelSeite() -> impl IntoView {
     let neu = move || {
         bearbeite.set(None);
         bezeichnung.set(String::new());
-        groesse.set(String::new());
+        groessen.set(vec![neue_zeile(String::new())]);
         bild.set(BildAenderung::Behalten);
         bild_name.set(None);
         formular_meldung.set(None);
@@ -81,7 +86,11 @@ pub fn ArtikelSeite() -> impl IntoView {
         ev.prevent_default();
         let eingabe = ArtikelEingabe {
             bezeichnung: bezeichnung.get_untracked(),
-            kleidergroesse_id: Uuid::parse_str(&groesse.get_untracked()).ok(),
+            groessen: groessen
+                .get_untracked()
+                .into_iter()
+                .map(|(_, feld)| feld.get_untracked())
+                .collect(),
             bild: bild.get_untracked(),
         };
         match bearbeite.get_untracked() {
@@ -111,7 +120,7 @@ pub fn ArtikelSeite() -> impl IntoView {
     };
 
     view! {
-        <Seitenkopf titel="Artikel" untertitel="Bezeichnung, Grösse und Bild der Artikel">
+        <Seitenkopf titel="Artikel" untertitel="Bezeichnung, Grössen und Bild der Artikel">
             <Show when=move || darf_anlegen.get()>
                 <button class="btn btn-primary" on:click=move |_| neu()>
                     <Icon icon=icondata::LuPlus/>
@@ -132,7 +141,7 @@ pub fn ArtikelSeite() -> impl IntoView {
                             }.into_any(),
                             Ok(liste) => view! {
                                 <table class="table table-zebra max-sm:table-sm">
-                                    <thead><tr><th>"Bezeichnung"</th><th>"Grösse"</th><th></th></tr></thead>
+                                    <thead><tr><th>"Bezeichnung"</th><th>"Grössen"</th><th></th></tr></thead>
                                     <tbody>
                                         {liste.into_iter().map(|a| {
                                             let id = a.id;
@@ -140,9 +149,14 @@ pub fn ArtikelSeite() -> impl IntoView {
                                             let zum_bearbeiten = a.clone();
                                             let oeffnen = move || {
                                                 let a = zum_bearbeiten.clone();
+                                                let mut felder: Vec<(u32, RwSignal<String>)> =
+                                                    a.groessen.iter().map(|g| neue_zeile(g.clone())).collect();
+                                                if felder.is_empty() {
+                                                    felder.push(neue_zeile(String::new()));
+                                                }
                                                 bearbeite.set(Some(a.id));
                                                 bezeichnung.set(a.bezeichnung.clone());
-                                                groesse.set(a.kleidergroesse_id.to_string());
+                                                groessen.set(felder);
                                                 bild.set(BildAenderung::Behalten);
                                                 bild_name.set(a.bild.clone());
                                                 bild_stand.set(a.geaendert_am.and_utc().timestamp());
@@ -155,7 +169,7 @@ pub fn ArtikelSeite() -> impl IntoView {
                                                         title=move || darf_bearbeiten.get().then_some("Doppelklick zum Bearbeiten")
                                                         on:dblclick={let oeffnen = oeffnen.clone(); move |_| if darf_bearbeiten.get_untracked() { oeffnen() }}>
                                                     <td class="font-medium">{a.bezeichnung}</td>
-                                                    <td>{a.groesse}</td>
+                                                    <td>{a.groessen.join(", ")}</td>
                                                     <td>
                                                         <ZeilenAktionen
                                                             bearbeiten=oeffnen.clone()
@@ -189,14 +203,21 @@ pub fn ArtikelSeite() -> impl IntoView {
                     <input class="input w-full" required placeholder="z. B. Schraube M6" bind:value=bezeichnung/>
                 </fieldset>
                 <fieldset class="fieldset">
-                    <legend class="fieldset-legend">"Grösse"</legend>
-                    <select class="select w-full" required bind:value=groesse>
-                        <option value="" disabled>"Bitte wählen"</option>
-                        {move || kleidergroessen.get().and_then(Result::ok).unwrap_or_default()
-                            .into_iter()
-                            .map(|k| view! { <option value=k.id.to_string()>{k.bezeichnung}</option> })
-                            .collect_view()}
-                    </select>
+                    <legend class="fieldset-legend">"Grössen"</legend>
+                    {move || groessen.get().into_iter().map(|(kennung, feld)| view! {
+                        <div class="mb-2 flex items-center gap-2">
+                            <input class="input w-full" placeholder="z. B. M oder 42" bind:value=feld/>
+                            <button type="button" class="btn btn-ghost btn-square" aria-label="Grösse entfernen"
+                                    on:click=move |_| groessen.update(|liste| liste.retain(|(k, _)| *k != kennung))>
+                                <Icon icon=icondata::LuX/>
+                            </button>
+                        </div>
+                    }).collect_view()}
+                    <button type="button" class="btn btn-ghost btn-sm justify-start"
+                            on:click=move |_| groessen.update(|liste| liste.push(neue_zeile(String::new())))>
+                        <Icon icon=icondata::LuPlus/>
+                        "Grösse hinzufügen"
+                    </button>
                 </fieldset>
                 <fieldset class="fieldset">
                     <legend class="fieldset-legend">"Bild"</legend>
