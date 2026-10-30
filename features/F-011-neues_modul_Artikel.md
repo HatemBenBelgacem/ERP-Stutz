@@ -16,14 +16,14 @@
 ## 1. Ziel und Nutzen
 
 - **Problem:** Es gibt keine Tabelle und keine Seite für Artikel. Artikel lassen sich im System nicht erfassen.
-- **Ziel:** Unter Lager gibt es einen Menüpunkt „Artikel“. Die Seite zeigt alle Artikel mit Bezeichnung und Kleidergrösse (F-015). Artikel lassen sich anlegen, bearbeiten und löschen, auch mit einem Bild.
+- **Ziel:** Unter Lager gibt es einen Menüpunkt „Artikel“. Die Seite zeigt alle Artikel mit Bezeichnung und Grössen (F-015). Artikel lassen sich anlegen, bearbeiten und löschen, auch mit einem Bild.
 - **Nutzen:** Artikel sind erfasst, und jeder mit Bild erkennbar. Messbar: Alle Akzeptanzkriterien in Abschnitt 12 sind erfüllt.
 
 ## 2. Abgrenzung
 
 | Im Umfang | Nicht im Umfang |
 |---|---|
-| Tabelle `artikel` (Migration), Grösse als Verweis auf `kleidergroesse` (F-015); Seite `/lager/artikel` mit Liste, Dialog zum Anlegen und Bearbeiten, Löschen nach Bestätigung; Bild hochladen (JPG, PNG, höchstens 2 MB) und als Vorschau zeigen; Menüpunkt „Artikel“ und Kachel in der Startansicht; Rechte `lager.sehen`, `lager.anlegen`, `lager.bearbeiten`, `lager.loeschen`; Datenbank-Tests; `docs/data-model.md` | Import bestehender Artikel (der Bestand startet leer); Bestände, Lagerorte und Materialbewegungen (das Modul Lager bleibt sonst Platzhalter); Suche, Filter und Sortierung über die Standardsortierung hinaus; Bild in der Liste; mehrere Bilder je Artikel; Bildbearbeitung (Zuschnitt, Skalierung) |
+| Tabelle `artikel` (Migration), Grössen je Artikel als Text (F-015); Seite `/lager/artikel` mit Liste, Dialog zum Anlegen und Bearbeiten, Löschen nach Bestätigung; Bild hochladen (JPG, PNG, höchstens 2 MB) und als Vorschau zeigen; Menüpunkt „Artikel“ und Kachel in der Startansicht; Rechte `lager.sehen`, `lager.anlegen`, `lager.bearbeiten`, `lager.loeschen`; Datenbank-Tests; `docs/data-model.md` | Import bestehender Artikel (der Bestand startet leer); Bestände, Lagerorte und Materialbewegungen (das Modul Lager bleibt sonst Platzhalter); Suche, Filter und Sortierung über die Standardsortierung hinaus; Bild in der Liste; mehrere Bilder je Artikel; Bildbearbeitung (Zuschnitt, Skalierung) |
 
 ## 3. Begriffe
 
@@ -32,7 +32,7 @@
 | Artikel | Ein Datensatz der Tabelle `artikel`. |
 | Bezeichnung | Name des Artikels. Spalte `bezeichnung`, Datentyp `TEXT`. Pflicht, Duplikate sind erlaubt. |
 | Bild | Hochgeladene Bilddatei, JPG oder PNG, höchstens 2 MB. Optional. Spalte `bild` (`TEXT`) hält den Dateinamen, Spalte `bild_daten` (`BYTEA`) den Inhalt. |
-| Grösse | Verweis auf eine Kleidergrösse (F-015), Spalte `kleidergroesse_id`. Pflicht. |
+| Grösse | Text, mit dem ein Artikel eine Ausführung beschreibt; ein Artikel hat mindestens eine (F-015). Tabelle `kleidergroesse`, Spalte `bezeichnung`. |
 
 ## 4. Rollen und Berechtigungen
 
@@ -57,7 +57,7 @@ Artikel gehört zum bestehenden Bereich `Bereich::Lager` (Schlüssel `lager`). D
 
 | ID | Als … | möchte ich … | damit … | Priorität |
 |---|---|---|---|---|
-| US-1 | Projektteam | eine Tabelle `artikel` mit Bezeichnung, Bild und Kleidergrösse | Artikel gespeichert werden können | Muss |
+| US-1 | Projektteam | eine Tabelle `artikel` mit Bezeichnung, Bild und Grössen | Artikel gespeichert werden können | Muss |
 | US-2 | Benutzer mit `lager.sehen` | alle Artikel auf einer Seite sehen und den Menüpunkt „Artikel“ öffnen | ich Artikel finde | Muss |
 | US-3 | Benutzer mit `lager.anlegen`, `lager.bearbeiten` oder `lager.loeschen` | Artikel erfassen, ändern und löschen | die Artikelliste aktuell bleibt | Muss |
 | US-4 | Benutzer mit `lager.anlegen` oder `lager.bearbeiten` | ein Bild zum Artikel hochladen und als Vorschau sehen | ich den Artikel erkenne | Muss |
@@ -68,8 +68,8 @@ Artikel gehört zum bestehenden Bereich `Bereich::Lager` (Schlüssel `lager`). D
 
 | ID | Anforderung | Story |
 |---|---|---|
-| FA-1 | Das System legt die Tabelle `artikel` mit `id`, `bezeichnung`, `bild`, `bild_daten`, `kleidergroesse_id`, `erstellt_am` und `geaendert_am` an. | US-1 |
-| FA-2 | Die Spalte `kleidergroesse_id` verweist auf eine vorhandene Kleidergrösse (F-015). | US-1 |
+| FA-1 | Das System legt die Tabelle `artikel` mit `id`, `bezeichnung`, `bild`, `bild_daten`, `erstellt_am` und `geaendert_am` an. | US-1 |
+| FA-2 | Ein Artikel hat mindestens eine und beliebig viele Grössen als Text (F-015). | US-1 |
 | FA-3 | `/lager/artikel` zeigt alle Artikel als Tabelle mit Bezeichnung und Grösse, sortiert nach Bezeichnung aufsteigend. | US-2 |
 | FA-4 | Ein Dialog legt einen Artikel an oder ändert ihn. Löschen erfolgt nach einer Bestätigung. | US-3 |
 | FA-5 | Ein Bild (JPG oder PNG, höchstens 2 MB) wird beim Anlegen oder Bearbeiten gespeichert. Im Dialog wird das gespeicherte Bild als Vorschau gezeigt. | US-4 |
@@ -80,7 +80,7 @@ Artikel gehört zum bestehenden Bereich `Bereich::Lager` (Schlüssel `lager`). D
 
 | ID | Regel | Wo geprüft (DB / Server / UI) | Meldung an den Benutzer |
 |---|---|---|---|
-| GR-1 | `kleidergroesse_id` ist Pflicht und verweist auf eine vorhandene Kleidergrösse (F-015). | DB (NOT NULL, Fremdschlüssel), UI (Auswahl) | „Bitte eine Grösse wählen.“ |
+| GR-1 | Mindestens eine Grösse je Artikel (F-015, GR-1). | Model (Server und Browser), UI | „Bitte mindestens eine Grösse eingeben.“ |
 | GR-2 | `bezeichnung` ist Pflicht. Leerzeichen am Rand zählen nicht. | DB (CHECK `btrim(bezeichnung) <> ''`), Server, UI | „Bitte eine Bezeichnung eingeben.“ |
 | GR-3 | `bezeichnung` darf doppelt vorkommen. | – | – |
 | GR-4 | Ein Bild ist optional. Erlaubt sind die Endungen `.jpg`, `.jpeg` und `.png`, und der Dateiinhalt muss zum Format passen. | Server (Dateikopf), UI (Auswahl) | „Das Bild muss ein JPG oder PNG sein.“ |
@@ -97,7 +97,7 @@ Bezug: [docs/data-model.md](../docs/data-model.md). Nach der Umsetzung dort nach
 
 ### 7.1 Neue oder geänderte Tabellen
 
-Die Grösse verweist auf die Tabelle `kleidergroesse` (F-015). Der Datentyp `artikel_groesse` entfällt.
+Die Grössen stehen in der Tabelle `kleidergroesse` (1:N zu `artikel`, F-015).
 
 | Tabelle | Spalte | Datentyp | Null | Standard | Schlüssel / Bedingung | Bemerkung |
 |---|---|---|---|---|---|---|
@@ -105,20 +105,20 @@ Die Grösse verweist auf die Tabelle `kleidergroesse` (F-015). Der Datentyp `art
 | `artikel` | `bezeichnung` | `TEXT` | nein | | CHECK `btrim(bezeichnung) <> ''` | Pflicht, Duplikate erlaubt |
 | `artikel` | `bild` | `TEXT` | ja | | | Dateiname, z. B. `schraube.jpg` |
 | `artikel` | `bild_daten` | `BYTEA` | ja | | CHECK `(bild IS NULL) = (bild_daten IS NULL)` | Inhalt der Bilddatei, höchstens 2 MB |
-| `artikel` | `kleidergroesse_id` | `UUID` | nein | | FK → `kleidergroesse.id`, `ON DELETE RESTRICT` | Pflicht, ersetzt `groesse` (F-015) |
+| `artikel` | (keine Grösse-Spalte) | – | – | – | – | Grössen stehen in `kleidergroesse` (F-015) |
 | `artikel` | `erstellt_am` | `TIMESTAMP` | nein | `now()` | | |
 | `artikel` | `geaendert_am` | `TIMESTAMP` | nein | `now()` | | Bei jeder Änderung neu setzen |
 
 ### 7.2 Beziehungen
 
-`artikel.kleidergroesse_id` → `kleidergroesse.id`, N:1, `ON DELETE RESTRICT` (siehe F-015).
+`artikel` → `kleidergroesse`, 1:N, `ON DELETE CASCADE` (siehe F-015).
 
 ### 7.3 Migration
 
 - Datei: `migrations/20261030000001_artikel.sql` (nach der letzten Migration `20261029000001_mitarbeiter_beziehungen.sql`)
 - Umgang mit **bestehenden Daten**: Entfällt, weil die Tabelle neu und leer ist.
 - Die Änderung an `artikel` durch F-015 (Grösse als Relation) folgt in einer eigenen Migration.
-- Indizes: Index auf `artikel.kleidergroesse_id` (siehe F-015). Die Bezeichnung ist nicht eindeutig.
+- Indizes: Index auf `kleidergroesse.artikel_id` (siehe F-015). Die Bezeichnung des Artikels ist nicht eindeutig.
 - Rechte für bestehende Rollen: keine Migration nötig, siehe Abschnitt 4.
 
 ## 8. Benutzeroberfläche
@@ -156,7 +156,7 @@ Die Artikelseite folgt dem Muster von `AdresseSeite` (`src/components/adresse/ad
 | Feld | Typ / Eingabe | Pflicht | Standard | Validierung | Hilfetext |
 |---|---|---|---|---|---|
 | Bezeichnung | Text | ja | leer | GR-2 | – |
-| Grösse | Auswahl aus den Kleidergrössen (F-015) | ja | keine Vorauswahl | GR-1 | – |
+| Grösse | Liste von Textfeldern mit Hinzufügen und Entfernen (F-015) | ja, mindestens ein Feld | ein leeres Feld | GR-1 | – |
 | Bild | Datei (JPG, PNG) | nein | kein Bild | GR-4, GR-5 | „JPG oder PNG, höchstens 2 MB“ |
 
 ### 8.4 Gestaltung und Bedienbarkeit
@@ -176,11 +176,9 @@ Validierung und Umwandlung liegen in `model.rs` (Muster laut `docs/system-design
 | Funktion | Datei | Parameter | Rückgabe | Recht | Fehlerfälle |
 |---|---|---|---|---|---|
 | `artikel_laden` | `src/backend/artikel/server_fns.rs` | – | `Vec<Artikel>` ohne `bild_daten` | `lager.sehen` | nicht angemeldet, kein Recht |
-| `artikel_anlegen` | `src/backend/artikel/server_fns.rs` | `eingabe: ArtikelEingabe` (Bezeichnung, Kleidergrösse, Bild optional) | `Uuid` | `lager.anlegen` | GR-1 bis GR-5 |
+| `artikel_anlegen` | `src/backend/artikel/server_fns.rs` | `eingabe: ArtikelEingabe` (Bezeichnung, Grössen, Bild optional) | `Uuid` | `lager.anlegen` | GR-1 bis GR-5 |
 | `artikel_bearbeiten` | `src/backend/artikel/server_fns.rs` | `id: Uuid, eingabe: ArtikelEingabe` (Bild: neu, behalten oder entfernen) | `()` | `lager.bearbeiten` | GR-1 bis GR-5, Datensatz fehlt |
 | `artikel_loeschen` | `src/backend/artikel/server_fns.rs` | `id: Uuid` | `()` | `lager.loeschen` | Datensatz fehlt |
-| `kleidergroessen_laden` | `src/backend/artikel/server_fns.rs` | – | `Vec<Kleidergroesse>` | `lager.sehen` | nicht angemeldet, kein Recht |
-
 ### 9.2 Weitere Endpunkte und Exporte
 
 - `GET /artikel/{id}/bild` in `src/main.rs`: liefert `bild_daten` mit `Content-Type` `image/jpeg` oder `image/png`, je nach Endung in `bild`. Die Sitzung wird wie bei den Server-Funktionen geprüft. Ohne Anmeldung oder Recht `lager.sehen`: `403`. Kein Bild oder unbekannte `id`: `404`.
@@ -204,7 +202,7 @@ Entfällt, weil keine externen Systeme beteiligt sind. Bilder liegen in der Date
 
 | Fall | Erwartetes Verhalten |
 |---|---|
-| Keine Kleidergrösse gewählt oder Verweis auf eine nicht vorhandene Grösse | Dialog zeigt die Meldung aus GR-1. Die Datenbank lehnt den Datensatz ab. |
+| Keine Grösse eingetragen | Meldung aus GR-1, nichts gespeichert (F-015). |
 | `bezeichnung` ist leer oder nur Leerzeichen | Meldung aus GR-2, nichts gespeichert. |
 | `bezeichnung` kommt doppelt vor | Erlaubt (GR-3). |
 | Bild größer als 2 MB | Meldung aus GR-5, nichts gespeichert. |
@@ -222,12 +220,12 @@ Jedes Kriterium ist prüfbar und einer Story zugeordnet.
 Szenario: Tabelle wird angelegt (US-1)
   Angenommen die Migration 20261030000001_artikel ist noch nicht ausgeführt
   Wenn die App startet
-  Dann existiert die Tabelle artikel mit den Spalten id, bezeichnung, bild, bild_daten, kleidergroesse_id, erstellt_am und geaendert_am
+  Dann existiert die Tabelle artikel mit den Spalten id, bezeichnung, bild, bild_daten, erstellt_am und geaendert_am
 
-Szenario: Verweis auf eine nicht vorhandene Kleidergrösse wird abgelehnt (US-1)
-  Angenommen die Tabelle artikel existiert
-  Wenn ein Artikel auf eine nicht vorhandene Kleidergrösse verweist
-  Dann lehnt die Datenbank den Datensatz ab
+Szenario: Artikel ohne Grösse wird abgelehnt (US-2)
+  Angenommen ein Benutzer hat lager.anlegen
+  Wenn er einen Artikel ohne Grösse speichern will
+  Dann erscheint die Meldung „Bitte mindestens eine Grösse eingeben.“
 
 Szenario: Artikel mit Bild anlegen (US-3, US-4)
   Angenommen ein Benutzer hat lager.sehen und lager.anlegen
@@ -250,8 +248,8 @@ Szenario: Artikel löschen (US-3)
   Dann ist der Artikel nicht mehr in der Liste
 ```
 
-- [ ] AK-1 (US-1): Die Tabelle `artikel` verweist über `kleidergroesse_id` auf die Tabelle `kleidergroesse` (F-015).
-- [ ] AK-2 (US-1): Ein Artikel mit einer vorhandenen Kleidergrösse wird gespeichert. Ein unbekannter Verweis wird von der Datenbank abgelehnt.
+- [ ] AK-1 (US-1): Die Tabelle `kleidergroesse` gehört 1:N zu `artikel` (F-015).
+- [ ] AK-2 (US-1): Ein Artikel mit mehreren Grössen wird gespeichert. Jede Grösse gehört zu genau einem Artikel.
 - [ ] AK-3 (US-3): Eine leere Bezeichnung oder nur Leerzeichen wird in der Datenbank und im Dialog abgelehnt.
 - [ ] AK-4 (US-2): `/lager/artikel` zeigt Bezeichnung und Grösse, sortiert nach Bezeichnung. Ohne Artikel erscheint der Leer-Hinweis.
 - [ ] AK-5 (US-3): Ein Benutzer mit `lager.sehen`, aber ohne `lager.anlegen`, sieht keinen Knopf „Neu“.
@@ -270,7 +268,7 @@ Szenario: Artikel löschen (US-3)
 |---|---|---|
 | Unit | Validierung: Bezeichnung mit Leerzeichen, Grösse, Bildendung, Bildgrösse (2 MB erlaubt, 2 MB + 1 Byte abgelehnt), Dateikopf JPG und PNG | `#[cfg(test)]` in `src/backend/artikel/model.rs` |
 | Unit | `Bereich::Lager` hat `Sehen`, `Anlegen`, `Bearbeiten`, `Loeschen` | `#[cfg(test)]` in `src/models.rs` |
-| Datenbank | Migration, Constraints (Kleidergrösse, Bezeichnung, `bild`/`bild_daten`), `artikel_laden` ohne `bild_daten`. Rechte: Admin, Rolle mit Recht, Rolle ohne Recht | `#[sqlx::test]` mit Präfix `db_` (siehe Skill `test`) |
+| Datenbank | Migration, Constraints (Grössen je Artikel, Bezeichnung, `bild`/`bild_daten`), `artikel_laden` ohne `bild_daten`. Rechte: Admin, Rolle mit Recht, Rolle ohne Recht | `#[sqlx::test]` mit Präfix `db_` (siehe Skill `test`) |
 | Build | Skill `build` (Server und WASM) | lokal oder Cloud-Session |
 | Manuell / UI | AK-4 bis AK-11 im Browser | Checkliste unten |
 
@@ -306,7 +304,7 @@ Manuelle Prüfliste:
 | 11 | Wo liegt die Artikelseite? | entschieden | Unter `/lager/artikel`. `/lager` bleibt Platzhalter. | 2026-10-30 |
 | 12 | Wie gelangt man im Menü zu Artikel? | entschieden | Gruppe „Lager“ mit Eintrag „Artikel“, wie Personal › Weiterbildung. Der Eintrag „Lager“ entfällt, die Startansicht zeigt zehn Module (siehe F-010). | 2026-10-30 |
 | 13 | Standardentscheidungen von Claude, bitte prüfen | entschieden (Vorschlag) | Sortierung nach Bezeichnung aufsteigend; Grösse ohne Vorauswahl; Löschen nach Bestätigung; „Bild entfernen“ möglich; keine Suche und kein Filter; kein Bild in der Liste; Bildformat am Dateikopf prüfen. | 2026-10-30 |
-| 14 | Grösse als Enum wird durch die Relation Kleidergrösse ersetzt | entschieden | Die Tabelle `kleidergroesse` (N:1) ersetzt den Enum `artikel_groesse`. Details in F-015. | 2026-10-30 |
+| 14 | Grösse als Enum wird durch Grössen je Artikel ersetzt | entschieden | Ein Artikel hat 1:N Grössen als Text. Die Grössen werden im Artikelformular erfasst. Details in F-015. | 2026-10-30 |
 
 ## 16. Aufgaben
 
@@ -329,3 +327,4 @@ Werden in [task.md](../task.md) übernommen (T-015 bis T-021).
 | 2026-10-30 | 0.3 | Menüpunkt „Artikel“ als eingerückter Unterpunkt unter Lager | Claude |
 | 2026-10-30 | 0.4 | Gruppe „Lager“ wie Personal › Weiterbildung, Eintrag „Lager“ entfällt, /lager leitet auf /lager/artikel | Claude |
 | 2026-10-30 | 0.5 | Grösse als Relation zu Kleidergrösse (F-015) statt Enum `artikel_groesse` | Claude |
+| 2026-10-30 | 0.6 | Richtung korrigiert: Artikel 1:N Grössen als Text, keine Grösse-Spalte mehr am Artikel (F-015) | Claude |

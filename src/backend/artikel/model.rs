@@ -1,17 +1,14 @@
 //! Datentypen und Prüfregeln für Artikel. Die Prüfung läuft im Browser für
 //! sofortige Meldungen und auf dem Server zur Sicherheit, mit demselben Code.
 
+use std::collections::HashSet;
+
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Kleidergrösse, z. B. „M“ (Tabelle `kleidergroesse`)
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
-pub struct Kleidergroesse {
-    pub id: Uuid,
-    pub bezeichnung: String,
-}
+/// Höchstlänge einer Grösse in Zeichen
+pub const GROESSE_MAX_ZEICHEN: usize = 20;
 
 /// Artikel, wie er in der Liste steht (ohne Bilddaten)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -20,9 +17,8 @@ pub struct Artikel {
     pub bezeichnung: String,
     /// Dateiname des Bildes, sofern eins hochgeladen ist
     pub bild: Option<String>,
-    pub kleidergroesse_id: Uuid,
-    /// Bezeichnung der Kleidergrösse
-    pub groesse: String,
+    /// Grössen des Artikels in ihrer Reihenfolge
+    pub groessen: Vec<String>,
     pub erstellt_am: NaiveDateTime,
     pub geaendert_am: NaiveDateTime,
 }
@@ -61,18 +57,39 @@ pub enum BildAenderung {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct ArtikelEingabe {
     pub bezeichnung: String,
-    pub kleidergroesse_id: Option<Uuid>,
+    /// Grössen als Text, in der Eingabereihenfolge
+    pub groessen: Vec<String>,
     pub bild: BildAenderung,
 }
 
 impl ArtikelEingabe {
+    /// Grössen ohne Leerzeichen am Rand und ohne leere Einträge (GR-2)
+    pub fn groessen_bereinigt(&self) -> Vec<String> {
+        self.groessen
+            .iter()
+            .map(|g| g.trim().to_string())
+            .filter(|g| !g.is_empty())
+            .collect()
+    }
+
     /// Fachliche Prüfung; läuft im Browser und auf dem Server.
     pub fn pruefen(&self) -> Result<(), String> {
         if self.bezeichnung.trim().is_empty() {
             return Err("Bitte eine Bezeichnung eingeben.".into());
         }
-        if self.kleidergroesse_id.is_none() {
-            return Err("Bitte eine Grösse wählen.".into());
+        let groessen = self.groessen_bereinigt();
+        if groessen.is_empty() {
+            return Err("Bitte mindestens eine Grösse eingeben.".into());
+        }
+        if groessen
+            .iter()
+            .any(|g| g.chars().count() > GROESSE_MAX_ZEICHEN)
+        {
+            return Err("Eine Grösse darf höchstens 20 Zeichen haben.".into());
+        }
+        let mut gesehen = HashSet::new();
+        if !groessen.iter().all(|g| gesehen.insert(g.as_str())) {
+            return Err("Eine Grösse ist doppelt angegeben.".into());
         }
         if let BildAenderung::Neu(bild) = &self.bild {
             bild.pruefen()?;
@@ -106,14 +123,10 @@ mod tests {
     const JPG: &[u8] = &[0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10];
     const PNG: &[u8] = &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 0x00];
 
-    fn eingabe(
-        bezeichnung: &str,
-        kleidergroesse_id: Option<Uuid>,
-        bild: BildAenderung,
-    ) -> ArtikelEingabe {
+    fn eingabe(bezeichnung: &str, groessen: &[&str], bild: BildAenderung) -> ArtikelEingabe {
         ArtikelEingabe {
             bezeichnung: bezeichnung.into(),
-            kleidergroesse_id,
+            groessen: groessen.iter().map(|g| g.to_string()).collect(),
             bild,
         }
     }
@@ -127,7 +140,7 @@ mod tests {
 
     #[test]
     fn leere_bezeichnung_wird_abgelehnt() {
-        let e = eingabe("   ", Some(Uuid::nil()), BildAenderung::Behalten);
+        let e = eingabe("   ", &["M"], BildAenderung::Behalten);
         assert_eq!(
             e.pruefen(),
             Err("Bitte eine Bezeichnung eingeben.".to_string())
@@ -135,32 +148,70 @@ mod tests {
     }
 
     #[test]
-    fn fehlende_groesse_wird_abgelehnt() {
-        let e = eingabe("Schraube", None, BildAenderung::Behalten);
-        assert_eq!(e.pruefen(), Err("Bitte eine Grösse wählen.".to_string()));
+    fn ohne_grosse_wird_abgelehnt() {
+        let e = eingabe("Schraube", &[], BildAenderung::Behalten);
+        assert_eq!(
+            e.pruefen(),
+            Err("Bitte mindestens eine Grösse eingeben.".to_string())
+        );
+    }
+
+    #[test]
+    fn leere_felder_zaehlen_nicht_als_grosse() {
+        let e = eingabe("Schraube", &["  ", ""], BildAenderung::Behalten);
+        assert_eq!(
+            e.pruefen(),
+            Err("Bitte mindestens eine Grösse eingeben.".to_string())
+        );
+    }
+
+    #[test]
+    fn mehrere_grossen_sind_erlaubt_und_werden_bereinigt() {
+        let e = eingabe("Shirt", &[" S ", "", "M", "L"], BildAenderung::Behalten);
+        assert_eq!(e.groessen_bereinigt(), ["S", "M", "L"]);
+        assert_eq!(e.pruefen(), Ok(()));
+    }
+
+    #[test]
+    fn doppelte_grosse_wird_abgelehnt() {
+        let e = eingabe("Shirt", &["M", "L", "M"], BildAenderung::Behalten);
+        assert_eq!(
+            e.pruefen(),
+            Err("Eine Grösse ist doppelt angegeben.".to_string())
+        );
+    }
+
+    #[test]
+    fn grosse_mit_mehr_als_zwanzig_zeichen_wird_abgelehnt() {
+        let zu_lang = "x".repeat(GROESSE_MAX_ZEICHEN + 1);
+        let e = eingabe("Shirt", &[zu_lang.as_str()], BildAenderung::Behalten);
+        assert_eq!(
+            e.pruefen(),
+            Err("Eine Grösse darf höchstens 20 Zeichen haben.".to_string())
+        );
     }
 
     #[test]
     fn artikel_ohne_bild_ist_gueltig() {
-        let e = eingabe("Schraube", Some(Uuid::nil()), BildAenderung::Entfernen);
+        let e = eingabe("Schraube", &["M"], BildAenderung::Entfernen);
         assert_eq!(e.pruefen(), Ok(()));
     }
 
     #[test]
     fn jpg_und_png_sind_erlaubt() {
         assert_eq!(
-            eingabe("A", Some(Uuid::nil()), upload("bild.jpg", JPG)).pruefen(),
+            eingabe("A", &["M"], upload("bild.jpg", JPG)).pruefen(),
             Ok(())
         );
         assert_eq!(
-            eingabe("A", Some(Uuid::nil()), upload("bild.PNG", PNG)).pruefen(),
+            eingabe("A", &["M"], upload("bild.PNG", PNG)).pruefen(),
             Ok(())
         );
     }
 
     #[test]
     fn gif_wird_abgelehnt() {
-        let e = eingabe("A", Some(Uuid::nil()), upload("bild.gif", JPG));
+        let e = eingabe("A", &["M"], upload("bild.gif", JPG));
         assert_eq!(
             e.pruefen(),
             Err("Das Bild muss ein JPG oder PNG sein.".to_string())
@@ -169,7 +220,7 @@ mod tests {
 
     #[test]
     fn falscher_inhalt_wird_abgelehnt() {
-        let e = eingabe("A", Some(Uuid::nil()), upload("bild.jpg", b"hallo"));
+        let e = eingabe("A", &["M"], upload("bild.jpg", b"hallo"));
         assert_eq!(
             e.pruefen(),
             Err("Das Bild muss ein JPG oder PNG sein.".to_string())
@@ -181,7 +232,7 @@ mod tests {
         let mut daten = JPG.to_vec();
         daten.resize(BILD_MAX_BYTES, 0);
         assert_eq!(
-            eingabe("A", Some(Uuid::nil()), upload("bild.jpg", &daten)).pruefen(),
+            eingabe("A", &["M"], upload("bild.jpg", &daten)).pruefen(),
             Ok(())
         );
     }
@@ -190,7 +241,7 @@ mod tests {
     fn bild_ueber_zwei_mb_wird_abgelehnt() {
         let mut daten = JPG.to_vec();
         daten.resize(BILD_MAX_BYTES + 1, 0);
-        let e = eingabe("A", Some(Uuid::nil()), upload("bild.jpg", &daten));
+        let e = eingabe("A", &["M"], upload("bild.jpg", &daten));
         assert_eq!(
             e.pruefen(),
             Err("Das Bild ist grösser als 2 MB.".to_string())

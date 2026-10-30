@@ -1,4 +1,4 @@
-//! Artikel: Stammdaten mit Bezeichnung, Kleidergrösse und optionalem Bild.
+//! Artikel: Stammdaten mit Bezeichnung, Grössen und optionalem Bild.
 
 #[cfg(feature = "ssr")]
 mod bild;
@@ -12,7 +12,7 @@ pub use bild::bild_ausliefern;
 pub use model::*;
 pub use server_fns::*;
 
-/// Übersetzt die eigenen Prüfregeln (Bezeichnung, Kleidergrösse); alle anderen Fehler gehen an `db::fehler`.
+/// Übersetzt die eigenen Prüfregeln (Bezeichnung, doppelte Grösse); alle anderen Fehler gehen an `db::fehler`.
 #[cfg(feature = "ssr")]
 fn fehler(e: sqlx::Error) -> leptos::prelude::ServerFnError {
     let meldung = e.as_database_error().and_then(|db| {
@@ -22,8 +22,8 @@ fn fehler(e: sqlx::Error) -> leptos::prelude::ServerFnError {
             (Some("23514"), Some("artikel_bezeichnung_check")) => {
                 Some("Bitte eine Bezeichnung eingeben.")
             }
-            (Some("23503"), Some("artikel_kleidergroesse_id_fkey")) => {
-                Some("Die gewählte Grösse gibt es nicht.")
+            (Some("23505"), Some("kleidergroesse_artikel_id_bezeichnung_key")) => {
+                Some("Eine Grösse ist doppelt angegeben.")
             }
             _ => None,
         }
