@@ -10,8 +10,8 @@ use crate::app::use_sitzung;
 #[cfg(feature = "hydrate")]
 use crate::backend::artikel::BildUpload;
 use crate::backend::artikel::{
-    ArtikelAnlegen, ArtikelBearbeiten, ArtikelEingabe, ArtikelGroesse, ArtikelLoeschen,
-    BildAenderung, artikel_laden,
+    ArtikelAnlegen, ArtikelBearbeiten, ArtikelEingabe, ArtikelLoeschen, BildAenderung,
+    artikel_laden, kleidergroessen_laden,
 };
 use crate::components::gemeinsam::{
     Dialog, DialogAktionen, Fehlermeldung, Laden, Leer, Seitenkopf, ZeilenAktionen, bestaetigt,
@@ -38,6 +38,8 @@ pub fn ArtikelSeite() -> impl IntoView {
         },
         |_| artikel_laden(),
     );
+
+    let kleidergroessen = Resource::new(|| (), |_| kleidergroessen_laden());
 
     let dialog_offen = RwSignal::new(false);
     let bearbeite = RwSignal::new(None::<Uuid>);
@@ -79,7 +81,7 @@ pub fn ArtikelSeite() -> impl IntoView {
         ev.prevent_default();
         let eingabe = ArtikelEingabe {
             bezeichnung: bezeichnung.get_untracked(),
-            groesse: ArtikelGroesse::aus_schluessel(&groesse.get_untracked()),
+            kleidergroesse_id: Uuid::parse_str(&groesse.get_untracked()).ok(),
             bild: bild.get_untracked(),
         };
         match bearbeite.get_untracked() {
@@ -140,7 +142,7 @@ pub fn ArtikelSeite() -> impl IntoView {
                                                 let a = zum_bearbeiten.clone();
                                                 bearbeite.set(Some(a.id));
                                                 bezeichnung.set(a.bezeichnung.clone());
-                                                groesse.set(a.groesse.schluessel().to_string());
+                                                groesse.set(a.kleidergroesse_id.to_string());
                                                 bild.set(BildAenderung::Behalten);
                                                 bild_name.set(a.bild.clone());
                                                 bild_stand.set(a.geaendert_am.and_utc().timestamp());
@@ -153,7 +155,7 @@ pub fn ArtikelSeite() -> impl IntoView {
                                                         title=move || darf_bearbeiten.get().then_some("Doppelklick zum Bearbeiten")
                                                         on:dblclick={let oeffnen = oeffnen.clone(); move |_| if darf_bearbeiten.get_untracked() { oeffnen() }}>
                                                     <td class="font-medium">{a.bezeichnung}</td>
-                                                    <td>{a.groesse.schluessel()}</td>
+                                                    <td>{a.groesse}</td>
                                                     <td>
                                                         <ZeilenAktionen
                                                             bearbeiten=oeffnen.clone()
@@ -190,9 +192,9 @@ pub fn ArtikelSeite() -> impl IntoView {
                     <legend class="fieldset-legend">"Grösse"</legend>
                     <select class="select w-full" required bind:value=groesse>
                         <option value="" disabled>"Bitte wählen"</option>
-                        {ArtikelGroesse::ALLE
+                        {move || kleidergroessen.get().and_then(Result::ok).unwrap_or_default()
                             .into_iter()
-                            .map(|g| view! { <option value=g.schluessel()>{g.schluessel()}</option> })
+                            .map(|k| view! { <option value=k.id.to_string()>{k.bezeichnung}</option> })
                             .collect_view()}
                     </select>
                 </fieldset>

@@ -1,4 +1,4 @@
-//! Artikel: Stammdaten mit Bezeichnung, Grösse und optionalem Bild.
+//! Artikel: Stammdaten mit Bezeichnung, Kleidergrösse und optionalem Bild.
 
 #[cfg(feature = "ssr")]
 mod bild;
@@ -12,15 +12,24 @@ pub use bild::bild_ausliefern;
 pub use model::*;
 pub use server_fns::*;
 
-/// Übersetzt die Prüfregel der Bezeichnung; alle anderen Fehler gehen an `db::fehler`.
+/// Übersetzt die eigenen Prüfregeln (Bezeichnung, Kleidergrösse); alle anderen Fehler gehen an `db::fehler`.
 #[cfg(feature = "ssr")]
 fn fehler(e: sqlx::Error) -> leptos::prelude::ServerFnError {
-    let bezeichnung_leer = e.as_database_error().is_some_and(|db| {
-        db.code().as_deref() == Some("23514")
-            && db.constraint() == Some("artikel_bezeichnung_check")
+    let meldung = e.as_database_error().and_then(|db| {
+        let code = db.code();
+        let constraint = db.constraint();
+        match (code.as_deref(), constraint) {
+            (Some("23514"), Some("artikel_bezeichnung_check")) => {
+                Some("Bitte eine Bezeichnung eingeben.")
+            }
+            (Some("23503"), Some("artikel_kleidergroesse_id_fkey")) => {
+                Some("Die gewählte Grösse gibt es nicht.")
+            }
+            _ => None,
+        }
     });
-    if bezeichnung_leer {
-        return leptos::prelude::ServerFnError::new("Bitte eine Bezeichnung eingeben.");
+    match meldung {
+        Some(text) => leptos::prelude::ServerFnError::new(text),
+        None => crate::backend::db::fehler(e),
     }
-    crate::backend::db::fehler(e)
 }

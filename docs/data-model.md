@@ -1,6 +1,6 @@
 # Datenmodell
 
-Stand nach allen Migrationen in `migrations/` (bis `20261030000001_artikel.sql`).
+Stand nach allen Migrationen in `migrations/` (bis `20261031000001_kleidergroesse.sql`).
 Datenbank: PostgreSQL (über `sqlx`).
 
 Legende: **PK** = Primärschlüssel, **FK** = Fremdschlüssel, **UQ** = eindeutig (UNIQUE).
@@ -24,14 +24,14 @@ Legende: **PK** = Primärschlüssel, **FK** = Fremdschlüssel, **UQ** = eindeuti
 | [`benutzer`](#benutzer) | Benutzerkonten für die Anmeldung |
 | [`rolle`](#rolle) | Rollen mit Rechten |
 | [`sitzung`](#sitzung) | Angemeldete Sitzungen |
-| [`artikel`](#artikel) | Artikel mit Bezeichnung, optionalem Bild und Grösse |
+| [`artikel`](#artikel) | Artikel mit Bezeichnung, optionalem Bild und Kleidergrösse |
+| [`kleidergroesse`](#kleidergroesse) | Grössen für Artikel (Kleidung) |
 
 ## Eigene Datentypen
 
 | Typ | Art | Werte |
 |---|---|---|
 | `termin_status` | ENUM | `neu`, `teamchefs_informiert`, `laufend`, `beendet` |
-| `artikel_groesse` | ENUM | `S`, `M`, `L`, `XL` |
 
 ## Tabellen
 
@@ -176,9 +176,17 @@ Legende: **PK** = Primärschlüssel, **FK** = Fremdschlüssel, **UQ** = eindeuti
 | `bezeichnung` | `TEXT` | nein | | CHECK `btrim(bezeichnung) <> ''` |
 | `bild` | `TEXT` | ja | | Dateiname des Bildes |
 | `bild_daten` | `BYTEA` | ja | | Inhalt des Bildes, höchstens 2 MB (Grenze prüft der Server); CHECK `(bild IS NULL) = (bild_daten IS NULL)` |
-| `groesse` | `artikel_groesse` | nein | | |
+| `kleidergroesse_id` | `UUID` | nein | | FK → `kleidergroesse.id`, `RESTRICT` |
 | `erstellt_am` | `TIMESTAMP` | nein | `now()` | |
 | `geaendert_am` | `TIMESTAMP` | nein | `now()` | |
+
+### `kleidergroesse`
+
+| Spalte | Datentyp | Null | Standard | Schlüssel / Bedingung |
+|---|---|---|---|---|
+| `id` | `UUID` | nein | `gen_random_uuid()` | PK |
+| `bezeichnung` | `TEXT` | nein | | UQ, CHECK `btrim(bezeichnung) <> ''` |
+| `sortierung` | `INTEGER` | nein | | Reihenfolge in der Auswahl |
 
 ## Fremdschlüssel
 
@@ -203,6 +211,7 @@ Legende: **PK** = Primärschlüssel, **FK** = Fremdschlüssel, **UQ** = eindeuti
 | `buchung.mitarbeiter_id` | `mitarbeiter.id` | Mitarbeiter 1:N Buchung | `RESTRICT` |
 | `benutzer.rolle_id` | `rolle.id` | Rolle 1:N Benutzer | `RESTRICT` |
 | `sitzung.benutzer_id` | `benutzer.id` | Benutzer 1:N Sitzung | `CASCADE` |
+| `artikel.kleidergroesse_id` | `kleidergroesse.id` | Kleidergrösse 1:N Artikel | `RESTRICT` |
 
 `RESTRICT`: Der Datensatz lässt sich nicht löschen, solange er verwendet wird.
 `SET NULL`: Der Verweis wird geleert. `CASCADE`: Abhängige Zeilen werden mitgelöscht.
@@ -226,3 +235,4 @@ Legende: **PK** = Primärschlüssel, **FK** = Fremdschlüssel, **UQ** = eindeuti
 | `buchung_mitarbeiter_id_idx` | `buchung` | `mitarbeiter_id` |
 | `benutzer_rolle_id_idx` | `benutzer` | `rolle_id` |
 | `sitzung_benutzer_id_idx` | `sitzung` | `benutzer_id` |
+| `artikel_kleidergroesse_id_idx` | `artikel` | `kleidergroesse_id` |

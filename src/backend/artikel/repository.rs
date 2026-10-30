@@ -1,10 +1,10 @@
-//! SQL-Zugriffe für Artikel (nur Server).
+//! SQL-Zugriffe für Artikel und Kleidergrössen (nur Server).
 
 use chrono::NaiveDateTime;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::model::{Artikel, ArtikelEingabe, ArtikelGroesse, BildAenderung, BildUpload};
+use super::model::{Artikel, ArtikelEingabe, BildAenderung, BildUpload, Kleidergroesse};
 
 /// Alle Artikel ohne Bilddaten, nach Bezeichnung sortiert.
 pub async fn alle(pool: &PgPool) -> sqlx::Result<Vec<Artikel>> {
@@ -12,28 +12,42 @@ pub async fn alle(pool: &PgPool) -> sqlx::Result<Vec<Artikel>> {
         Uuid,
         String,
         Option<String>,
+        Uuid,
         String,
         NaiveDateTime,
         NaiveDateTime,
     )> = sqlx::query_as(
-        "SELECT id, bezeichnung, bild, groesse::text, erstellt_am, geaendert_am
-         FROM artikel ORDER BY bezeichnung",
+        "SELECT a.id, a.bezeichnung, a.bild, a.kleidergroesse_id, k.bezeichnung,
+                a.erstellt_am, a.geaendert_am
+         FROM artikel a
+         JOIN kleidergroesse k ON k.id = a.kleidergroesse_id
+         ORDER BY a.bezeichnung",
     )
     .fetch_all(pool)
     .await?;
     Ok(zeilen
         .into_iter()
         .map(
-            |(id, bezeichnung, bild, groesse, erstellt_am, geaendert_am)| Artikel {
-                id,
-                bezeichnung,
-                bild,
-                groesse: ArtikelGroesse::aus_schluessel(&groesse).unwrap_or_default(),
-                erstellt_am,
-                geaendert_am,
+            |(id, bezeichnung, bild, kleidergroesse_id, groesse, erstellt_am, geaendert_am)| {
+                Artikel {
+                    id,
+                    bezeichnung,
+                    bild,
+                    kleidergroesse_id,
+                    groesse,
+                    erstellt_am,
+                    geaendert_am,
+                }
             },
         )
         .collect())
+}
+
+/// Alle Kleidergrössen in der festgelegten Reihenfolge.
+pub async fn kleidergroessen(pool: &PgPool) -> sqlx::Result<Vec<Kleidergroesse>> {
+    sqlx::query_as("SELECT id, bezeichnung FROM kleidergroesse ORDER BY sortierung")
+        .fetch_all(pool)
+        .await
 }
 
 /// Dateiname und Inhalt des Bildes; `None`, wenn es den Artikel oder ein Bild nicht gibt.
@@ -53,12 +67,12 @@ pub async fn bild(pool: &PgPool, id: Uuid) -> sqlx::Result<Option<(String, Vec<u
 pub async fn einfuegen(pool: &PgPool, e: &ArtikelEingabe) -> sqlx::Result<Uuid> {
     let neu = neues_bild(&e.bild);
     sqlx::query_scalar(
-        "INSERT INTO artikel (bezeichnung, groesse, bild, bild_daten)
-         VALUES ($1, $2::artikel_groesse, $3, $4)
+        "INSERT INTO artikel (bezeichnung, kleidergroesse_id, bild, bild_daten)
+         VALUES ($1, $2, $3, $4)
          RETURNING id",
     )
     .bind(e.bezeichnung.trim())
-    .bind(e.groesse.map(ArtikelGroesse::schluessel))
+    .bind(e.kleidergroesse_id)
     .bind(neu.map(|b| b.name.trim()))
     .bind(neu.map(|b| b.daten.as_slice()))
     .fetch_one(pool)
@@ -73,7 +87,7 @@ pub async fn aktualisieren(pool: &PgPool, id: Uuid, e: &ArtikelEingabe) -> sqlx:
     let zeilen = sqlx::query(
         "UPDATE artikel
          SET bezeichnung = $2,
-             groesse = $3::artikel_groesse,
+             kleidergroesse_id = $3,
              geaendert_am = now(),
              bild = CASE WHEN $4 THEN $5::text ELSE bild END,
              bild_daten = CASE WHEN $4 THEN $6::bytea ELSE bild_daten END
@@ -81,7 +95,7 @@ pub async fn aktualisieren(pool: &PgPool, id: Uuid, e: &ArtikelEingabe) -> sqlx:
     )
     .bind(id)
     .bind(e.bezeichnung.trim())
-    .bind(e.groesse.map(ArtikelGroesse::schluessel))
+    .bind(e.kleidergroesse_id)
     .bind(bild_aendern)
     .bind(neu.map(|b| b.name.trim()))
     .bind(neu.map(|b| b.daten.as_slice()))
@@ -115,10 +129,18 @@ mod tests {
 
     const JPG: &[u8] = &[0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10];
 
-    fn eingabe(bild: BildAenderung) -> ArtikelEingabe {
+    /// Kleidergrösse „XL“ aus den Startwerten der Migration
+    async fn xl(pool: &PgPool) -> Uuid {
+        sqlx::query_scalar("SELECT id FROM kleidergroesse WHERE bezeichnung = 'XL'")
+            .fetch_one(pool)
+            .await
+            .unwrap()
+    }
+
+    async fn eingabe(pool: &PgPool, bild: BildAenderung) -> ArtikelEingabe {
         ArtikelEingabe {
             bezeichnung: "Schraube".into(),
-            groesse: Some(ArtikelGroesse::XL),
+            kleidergroesse_id: Some(xl(pool).await),
             bild,
         }
     }
@@ -132,11 +154,13 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn db_artikel_mit_bild_wird_gespeichert_und_gelesen(pool: PgPool) {
-        let id = einfuegen(&pool, &eingabe(mit_bild())).await.unwrap();
+        let id = einfuegen(&pool, &eingabe(&pool, mit_bild()).await)
+            .await
+            .unwrap();
 
         let liste = alle(&pool).await.unwrap();
         assert_eq!(liste.len(), 1);
-        assert_eq!(liste[0].groesse, ArtikelGroesse::XL);
+        assert_eq!(liste[0].groesse, "XL");
         assert_eq!(liste[0].bild.as_deref(), Some("schraube.jpg"));
         assert_eq!(
             bild(&pool, id).await.unwrap(),
@@ -146,7 +170,7 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn db_artikel_ohne_bild_hat_kein_bild(pool: PgPool) {
-        let id = einfuegen(&pool, &eingabe(BildAenderung::Behalten))
+        let id = einfuegen(&pool, &eingabe(&pool, BildAenderung::Behalten).await)
             .await
             .unwrap();
 
@@ -156,9 +180,11 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn db_bearbeiten_ohne_neues_bild_behaelt_das_bild(pool: PgPool) {
-        let id = einfuegen(&pool, &eingabe(mit_bild())).await.unwrap();
+        let id = einfuegen(&pool, &eingabe(&pool, mit_bild()).await)
+            .await
+            .unwrap();
 
-        let betroffen = aktualisieren(&pool, id, &eingabe(BildAenderung::Behalten))
+        let betroffen = aktualisieren(&pool, id, &eingabe(&pool, BildAenderung::Behalten).await)
             .await
             .unwrap();
 
@@ -171,9 +197,11 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn db_bearbeiten_mit_entfernen_loescht_das_bild(pool: PgPool) {
-        let id = einfuegen(&pool, &eingabe(mit_bild())).await.unwrap();
+        let id = einfuegen(&pool, &eingabe(&pool, mit_bild()).await)
+            .await
+            .unwrap();
 
-        aktualisieren(&pool, id, &eingabe(BildAenderung::Entfernen))
+        aktualisieren(&pool, id, &eingabe(&pool, BildAenderung::Entfernen).await)
             .await
             .unwrap();
 
@@ -183,34 +211,63 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn db_unbekannter_artikel_wird_nicht_geaendert(pool: PgPool) {
-        let betroffen = aktualisieren(&pool, Uuid::nil(), &eingabe(BildAenderung::Behalten))
-            .await
-            .unwrap();
+        let betroffen = aktualisieren(
+            &pool,
+            Uuid::nil(),
+            &eingabe(&pool, BildAenderung::Behalten).await,
+        )
+        .await
+        .unwrap();
         assert_eq!(betroffen, 0);
     }
 
     #[sqlx::test(migrations = "./migrations")]
-    async fn db_groesse_xxl_wird_abgelehnt(pool: PgPool) {
-        let ergebnis =
-            sqlx::query("INSERT INTO artikel (bezeichnung, groesse) VALUES ('Schraube', 'XXL')")
-                .execute(&pool)
-                .await;
+    async fn db_kleidergroessen_kommen_in_der_festgelegten_reihenfolge(pool: PgPool) {
+        let namen: Vec<String> = kleidergroessen(&pool)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|k| k.bezeichnung)
+            .collect();
+        assert_eq!(namen, ["S", "M", "L", "XL"]);
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn db_unbekannte_kleidergroesse_wird_abgelehnt(pool: PgPool) {
+        let ergebnis = sqlx::query(
+            "INSERT INTO artikel (bezeichnung, kleidergroesse_id) VALUES ('Schraube', gen_random_uuid())",
+        )
+        .execute(&pool)
+        .await;
+        assert!(ergebnis.is_err());
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn db_kleidergroesse_mit_artikeln_laesst_sich_nicht_loeschen(pool: PgPool) {
+        einfuegen(&pool, &eingabe(&pool, BildAenderung::Behalten).await)
+            .await
+            .unwrap();
+
+        let ergebnis = sqlx::query("DELETE FROM kleidergroesse WHERE bezeichnung = 'XL'")
+            .execute(&pool)
+            .await;
         assert!(ergebnis.is_err());
     }
 
     #[sqlx::test(migrations = "./migrations")]
     async fn db_leere_bezeichnung_wird_abgelehnt(pool: PgPool) {
-        let ergebnis =
-            sqlx::query("INSERT INTO artikel (bezeichnung, groesse) VALUES ('   ', 'M')")
-                .execute(&pool)
-                .await;
+        let ergebnis = sqlx::query(
+            "INSERT INTO artikel (bezeichnung, kleidergroesse_id) VALUES ('   ', (SELECT id FROM kleidergroesse WHERE bezeichnung = 'M'))",
+        )
+        .execute(&pool)
+        .await;
         assert!(ergebnis.is_err());
     }
 
     #[sqlx::test(migrations = "./migrations")]
     async fn db_bild_und_bilddaten_nur_gemeinsam(pool: PgPool) {
         let ergebnis = sqlx::query(
-            "INSERT INTO artikel (bezeichnung, groesse, bild, bild_daten) VALUES ('Schraube', 'M', 'a.jpg', NULL)",
+            "INSERT INTO artikel (bezeichnung, kleidergroesse_id, bild, bild_daten) VALUES ('Schraube', (SELECT id FROM kleidergroesse WHERE bezeichnung = 'M'), 'a.jpg', NULL)",
         )
         .execute(&pool)
         .await;
