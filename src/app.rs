@@ -18,6 +18,7 @@ use crate::components::mitarbeiter::MitarbeiterSeite;
 use crate::components::modul::ModulSeite;
 use crate::components::projekt::BauobjektSeite;
 use crate::components::rolle::RollenSeite;
+use crate::components::startansicht::Startansicht;
 use crate::components::termin::TerminSeite;
 use crate::components::termin_anmeldung::TerminAnmeldungSeite;
 use crate::components::weiterbildung::{WeiterbildungSeite, WeiterbildungStart};
@@ -140,10 +141,10 @@ pub fn App() -> impl IntoView {
                     redirect_path=|| "/anmelden"
                 >
                     // Jeder Bereich nur mit dem Recht „Sehen“ (siehe Bereichsschutz)
-                    // Startseite: erster Bereich, den der Benutzer sehen darf
-                    <Route path=StaticSegment("") view=Startseite/>
+                    // Startseite: Kacheln der Module, die der Benutzer sehen darf
+                    <Route path=StaticSegment("") view=Startansicht/>
                     <ParentRoute path=StaticSegment("personal") view=Outlet>
-                        <Route path=StaticSegment("") view=Startseite/>
+                        <Route path=StaticSegment("") view=|| view! { <Redirect path="/"/> }/>
                         <ParentRoute path=StaticSegment("weiterbildung") view=WeiterbildungSeite>
                             <Route path=StaticSegment("") view=WeiterbildungStart/>
                             <Route
@@ -221,19 +222,8 @@ pub fn App() -> impl IntoView {
     }
 }
 
-/// Leitet zum ersten Bereich weiter, den der Benutzer sehen darf.
-#[component]
-fn Startseite() -> impl IntoView {
-    let sitzung = use_sitzung();
-    view! {
-        <Transition>
-            {move || sitzung.benutzer().map(|b| view! { <Redirect path=b.startseite()/> })}
-        </Transition>
-    }
-}
-
 /// Zeigt die Seite nur mit dem Recht „Sehen“ für den Bereich, sonst geht es
-/// zur ersten erlaubten Seite. Ist niemand angemeldet, übernimmt die äussere
+/// zur Startansicht. Ist niemand angemeldet, übernimmt die äussere
 /// Route die Weiterleitung zur Anmeldung – so leitet nach dem Abmelden nur
 /// eine Stelle weiter.
 #[component]
@@ -248,13 +238,13 @@ fn Bereichsschutz(
     let zugang = Memo::new(move |_| {
         sitzung
             .benutzer()
-            .map(|b| (b.sieht(bereich) || oder.is_some_and(|o| b.sieht(o)), b.startseite()))
+            .map(|b| b.sieht(bereich) || oder.is_some_and(|o| b.sieht(o)))
     });
     view! {
         <Transition>
             {move || match zugang.get() {
-                Some((true, _)) => children().into_any(),
-                Some((false, startseite)) => view! { <Redirect path=startseite/> }.into_any(),
+                Some(true) => children().into_any(),
+                Some(false) => view! { <Redirect path="/"/> }.into_any(),
                 None => ().into_any(),
             }}
         </Transition>

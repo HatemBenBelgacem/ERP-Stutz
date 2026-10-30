@@ -6,43 +6,7 @@ use leptos_router::components::{A, Outlet};
 use leptos_router::hooks::use_location;
 
 use crate::app::use_sitzung;
-use crate::models::Bereich;
-
-/// Ein Menüpunkt; sichtbar, sobald einer seiner Bereiche sichtbar ist.
-#[derive(Clone, Copy)]
-struct Ziel {
-    text: &'static str,
-    href: &'static str,
-    icon: icondata::Icon,
-    bereiche: &'static [Bereich],
-}
-
-/// Navigation in Gruppen; Gruppen mit Titel lassen sich einklappen,
-/// Gruppen ohne Titel stehen für sich.
-const NAVIGATION: [(Option<(&str, icondata::Icon)>, &[Ziel]); 2] = [
-    (
-        Some(("Personal", icondata::LuBriefcase)),
-        &[
-            // Termine, Kurse und Geschäftsbereiche als Reiter
-            Ziel { text: "Weiterbildung", href: "/personal/weiterbildung", icon: icondata::LuGraduationCap, bereiche: &Bereich::WEITERBILDUNG },
-            Ziel { text: "Mitarbeiter", href: "/personal/mitarbeiter", icon: icondata::LuUsers, bereiche: &[Bereich::Mitarbeiter] },
-        ],
-    ),
-    (
-        None,
-        &[
-            Ziel { text: "Adressen", href: "/adressen", icon: icondata::LuMapPin, bereiche: &[Bereich::Adressen] },
-            Ziel { text: "Einkauf", href: "/einkauf", icon: icondata::LuShoppingCart, bereiche: &[Bereich::Einkauf] },
-            Ziel { text: "Lager", href: "/lager", icon: icondata::LuWarehouse, bereiche: &[Bereich::Lager] },
-            // Baumansicht Bauobjekte → Projekte
-            Ziel { text: "Projekte", href: "/projekte", icon: icondata::LuConstruction, bereiche: &Bereich::PROJEKTE },
-            Ziel { text: "Stunden erfassen", href: "/stunden-erfassen", icon: icondata::LuClockPlus, bereiche: &[Bereich::Stunden] },
-            Ziel { text: "Buchungen", href: "/buchungen", icon: icondata::LuReceipt, bereiche: &[Bereich::Buchungen] },
-            Ziel { text: "Werkhof", href: "/werkhof", icon: icondata::LuTruck, bereiche: &[Bereich::Werkhof] },
-            Ziel { text: "Finanzen", href: "/finanzen", icon: icondata::LuWallet, bereiche: &[Bereich::Finanzen] },
-        ],
-    ),
-];
+use crate::navigation::{NAVIGATION, Ziel};
 
 #[component]
 pub fn Layout() -> impl IntoView {
@@ -165,7 +129,7 @@ fn Sidebar(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl Int
                     {NAVIGATION
                         .into_iter()
                         .map(|(gruppe, eintraege)| {
-                            let sieht = move |ziel: &Ziel| ziel.bereiche.iter().any(|b| sitzung.sieht(*b) == Some(true));
+                            let sieht = move |ziel: &Ziel| ziel.sichtbar(|b| sitzung.sieht(b) == Some(true));
                             let sichtbar = move || eintraege.iter().any(sieht);
                             let liste = move || {
                                 eintraege
