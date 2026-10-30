@@ -203,23 +203,6 @@ pub fn ArtikelSeite() -> impl IntoView {
                     <input class="input w-full" required placeholder="z. B. Schraube M6" bind:value=bezeichnung/>
                 </fieldset>
                 <fieldset class="fieldset">
-                    <legend class="fieldset-legend">"Grössen"</legend>
-                    {move || groessen.get().into_iter().map(|(kennung, feld)| view! {
-                        <div class="mb-2 flex items-center gap-2">
-                            <input class="input w-full" placeholder="z. B. M oder 42" bind:value=feld/>
-                            <button type="button" class="btn btn-ghost btn-square" aria-label="Grösse entfernen"
-                                    on:click=move |_| groessen.update(|liste| liste.retain(|(k, _)| *k != kennung))>
-                                <Icon icon=icondata::LuX/>
-                            </button>
-                        </div>
-                    }).collect_view()}
-                    <button type="button" class="btn btn-ghost btn-sm justify-start"
-                            on:click=move |_| groessen.update(|liste| liste.push(neue_zeile(String::new())))>
-                        <Icon icon=icondata::LuPlus/>
-                        "Grösse hinzufügen"
-                    </button>
-                </fieldset>
-                <fieldset class="fieldset">
                     <legend class="fieldset-legend">"Bild"</legend>
                     <Show when=move || matches!(bild.get(), BildAenderung::Behalten) && bild_name.get().is_some()>
                         <img class="mb-2 max-h-40 rounded-box border border-base-300" alt="Bild des Artikels"
@@ -252,6 +235,24 @@ pub fn ArtikelSeite() -> impl IntoView {
                             </button>
                         </div>
                     </Show>
+                </fieldset>
+                // Grössen unter der Bildauswahl
+                <fieldset class="fieldset">
+                    <legend class="fieldset-legend">"Grössen"</legend>
+                    {move || groessen.get().into_iter().map(|(kennung, feld)| view! {
+                        <div class="mb-2 flex items-center gap-2">
+                            <input class="input w-full" placeholder="z. B. M oder 42" bind:value=feld/>
+                            <button type="button" class="btn btn-ghost btn-square" aria-label="Grösse entfernen"
+                                    on:click=move |_| groessen.update(|liste| liste.retain(|(k, _)| *k != kennung))>
+                                <Icon icon=icondata::LuX/>
+                            </button>
+                        </div>
+                    }).collect_view()}
+                    <button type="button" class="btn btn-ghost btn-sm justify-start"
+                            on:click=move |_| groessen.update(|liste| liste.push(neue_zeile(String::new())))>
+                        <Icon icon=icondata::LuPlus/>
+                        "Grösse hinzufügen"
+                    </button>
                 </fieldset>
                 <DialogAktionen offen=dialog_offen beschaeftigt=speichern_laeuft/>
             </form>

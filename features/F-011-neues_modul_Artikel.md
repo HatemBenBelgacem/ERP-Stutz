@@ -156,8 +156,10 @@ Die Artikelseite folgt dem Muster von `AdresseSeite` (`src/components/adresse/ad
 | Feld | Typ / Eingabe | Pflicht | Standard | Validierung | Hilfetext |
 |---|---|---|---|---|---|
 | Bezeichnung | Text | ja | leer | GR-2 | – |
-| Grösse | Liste von Textfeldern mit Hinzufügen und Entfernen (F-015) | ja, mindestens ein Feld | ein leeres Feld | GR-1 | – |
 | Bild | Datei (JPG, PNG) | nein | kein Bild | GR-4, GR-5 | „JPG oder PNG, höchstens 2 MB“ |
+| Grösse | Liste von Textfeldern mit Hinzufügen und Entfernen (F-015) | ja, mindestens ein Feld | ein leeres Feld | GR-1 | – |
+
+Die Felder erscheinen im Dialog in dieser Reihenfolge; die Grössen stehen unter der Bildauswahl.
 
 ### 8.4 Gestaltung und Bedienbarkeit
 
@@ -328,3 +330,4 @@ Werden in [task.md](../task.md) übernommen (T-015 bis T-021).
 | 2026-10-30 | 0.4 | Gruppe „Lager“ wie Personal › Weiterbildung, Eintrag „Lager“ entfällt, /lager leitet auf /lager/artikel | Claude |
 | 2026-10-30 | 0.5 | Grösse als Relation zu Kleidergrösse (F-015) statt Enum `artikel_groesse` | Claude |
 | 2026-10-30 | 0.6 | Richtung korrigiert: Artikel 1:N Grössen als Text, keine Grösse-Spalte mehr am Artikel (F-015) | Claude |
+| 2026-10-30 | 0.7 | Grössen im Dialog unter der Bildauswahl | Claude |
