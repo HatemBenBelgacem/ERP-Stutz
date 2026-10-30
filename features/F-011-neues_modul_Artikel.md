@@ -130,9 +130,9 @@ Entfällt, weil die Tabelle keinen Fremdschlüssel hat.
 
 | Route | Komponente | Menü | Schutz |
 |---|---|---|---|
-| `/lager/artikel` | `src/components/artikel/artikel.rs` (`ArtikelSeite`) | Unterpunkt „Artikel“ unter „Lager“ in `NAVIGATION` (`src/navigation.rs`, `unterpunkt: true`), in der Seitenleiste eingerückt; Icon aus `icondata` (`LuPackage`) | `Bereichsschutz bereich=Bereich::Lager` |
+| `/lager/artikel` | `src/components/artikel/artikel.rs` (`ArtikelSeite`) | Eintrag „Artikel“ in der Gruppe „Lager“ in `NAVIGATION` (`src/navigation.rs`), wie Personal › Weiterbildung; Icon aus `icondata` (`LuPackage`) | `Bereichsschutz bereich=Bereich::Lager` |
 
-In `src/app.rs` wird die Route `lager` zur verschachtelten Route: Bei `""` bleibt die Platzhalterseite `ModulSeite`, bei `artikel` steht die Artikelseite. Der Menüpunkt „Lager“ (`/lager`) bleibt unverändert.
+In `src/app.rs` wird die Route `lager` zur verschachtelten Route: Bei `""` leitet sie auf `/lager/artikel` weiter (wie `/personal` auf `/`), bei `artikel` steht die Artikelseite. Einen Menüpunkt „Lager“ gibt es nicht mehr; die Gruppe „Lager“ enthält nur „Artikel“.
 
 ### 8.2 Ansichten
 
@@ -289,7 +289,7 @@ Manuelle Prüfliste:
 - Migration läuft beim Start automatisch (`sqlx::migrate!` in `src/backend/db.rs`). Dauer: Entfällt, weil die Tabelle neu und leer ist.
 - Datenübernahme / Initialdaten: Entfällt, weil der Bestand leer startet.
 - Rückfallplan: Bestehende Migrationen werden nicht geändert. Ein Rückbau erfolgt über eine neue Migration (`DROP TABLE artikel; DROP TYPE artikel_groesse;`), solange keine Artikel erfasst sind. Die Aktionen von `Bereich::Lager` werden auf `[Sehen]` zurückgesetzt.
-- Information an die Benutzer: Neuer Menüpunkt „Artikel“ unter Lager. Die Rechte Anlegen, Bearbeiten und Löschen für Lager müssen Rollen zugewiesen werden. Die Startansicht zeigt dann elf Kacheln.
+- Information an die Benutzer: Neuer Menüpunkt „Artikel“ unter Lager. Die Rechte Anlegen, Bearbeiten und Löschen für Lager müssen Rollen zugewiesen werden. Die Startansicht zeigt dann zehn Kacheln, ohne „Lager“.
 
 ## 15. Offene Fragen und Entscheidungen
 
@@ -306,7 +306,7 @@ Manuelle Prüfliste:
 | 9 | Sollen `erstellt_am` und `geaendert_am` geführt werden? | entschieden | Ja, beide. | 2026-10-30 |
 | 10 | Gibt es bestehende Artikel, die übernommen werden? | entschieden | Nein, die Tabelle startet leer. | 2026-10-30 |
 | 11 | Wo liegt die Artikelseite? | entschieden | Unter `/lager/artikel`. `/lager` bleibt Platzhalter. | 2026-10-30 |
-| 12 | Wie gelangt man im Menü zu Artikel? | entschieden | Unterpunkt „Artikel“ unter Lager, in der Seitenleiste eingerückt, mit eigener Kachel. Die Startansicht zeigt damit elf statt zehn Module (siehe F-010). | 2026-10-30 |
+| 12 | Wie gelangt man im Menü zu Artikel? | entschieden | Gruppe „Lager“ mit Eintrag „Artikel“, wie Personal › Weiterbildung. Der Eintrag „Lager“ entfällt, die Startansicht zeigt zehn Module (siehe F-010). | 2026-10-30 |
 | 13 | Standardentscheidungen von Claude, bitte prüfen | entschieden (Vorschlag) | Sortierung nach Bezeichnung aufsteigend; Grösse ohne Vorauswahl; Löschen nach Bestätigung; „Bild entfernen“ möglich; keine Suche und kein Filter; kein Bild in der Liste; Bildformat am Dateikopf prüfen. | 2026-10-30 |
 
 ## 16. Aufgaben
@@ -328,3 +328,4 @@ Werden in [task.md](../task.md) übernommen (T-015 bis T-021).
 | 2026-10-30 | 0.1 | Erster Entwurf nach Vorlage, offene Fragen in Abschnitt 15 | Claude |
 | 2026-10-30 | 0.2 | Fragen geklärt (Umfang mit Oberfläche, Bereich Lager, Bild in der Datenbank), Abschnitte ergänzt, Aufgaben abgeleitet | Claude |
 | 2026-10-30 | 0.3 | Menüpunkt „Artikel“ als eingerückter Unterpunkt unter Lager | Claude |
+| 2026-10-30 | 0.4 | Gruppe „Lager“ wie Personal › Weiterbildung, Eintrag „Lager“ entfällt, /lager leitet auf /lager/artikel | Claude |

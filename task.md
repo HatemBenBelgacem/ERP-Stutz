@@ -19,7 +19,7 @@ Konkrete, ausführbare Aufgaben. Jede Aufgabe gehört zu einem Feature aus
 | T-017 | Backend `src/backend/artikel/`: Modell, Validierung, Repository, Server-Funktionen, Bild-Auslieferung | F-011 | offen (bitte ergänzen) | Code geschrieben, Unit- und DB-Tests ungeprüft |
 | T-018 | Bild-Route `GET /artikel/{id}/bild` in `src/main.rs` | F-011 | offen (bitte ergänzen) | Code geschrieben, nicht kompiliert |
 | T-019 | Komponente `src/components/artikel/`: Seite mit Liste, Dialog, Löschen, Bildupload | F-011 | offen (bitte ergänzen) | Code geschrieben, Browser nicht geprüft |
-| T-020 | Route `/lager/artikel`, Menüpunkt, Test auf elf Module, F-010 nachgeführt | F-011 | offen (bitte ergänzen) | Code geschrieben, nicht kompiliert |
+| T-020 | Route `/lager/artikel`, Gruppe Lager mit Artikel, Test auf zehn Module, F-010 nachgeführt | F-011 | offen (bitte ergänzen) | Code geschrieben, nicht kompiliert |
 
 ## Offen
 
