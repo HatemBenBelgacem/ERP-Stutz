@@ -30,10 +30,11 @@ zeigen aber nur eine Platzhalterseite (`ModulSeite`).
 
 | ID | Feature | Bereich | Priorität | Status | Ziel-Version | Abhängig von | Spezifikation |
 |---|---|---|---|---|---|---|---|
-| F-010 | <Feature> | Einkauf | Muss | 💡 | <v0.2> | | |
+| F-010 | Startansicht mit Modulen | Startseite | Muss | ✅ | – | F-002 | [F-010](F-010-startansicht_mit_modulen.md) |
 | F-011 | <Feature> | Lager | Soll | 💡 | | | |
 | F-012 | <Feature> | Werkhof | Kann | 💡 | | | |
 | F-013 | <Feature> | Finanzen | Soll | 💡 | | F-009 | |
+| F-014 | <Feature> | Einkauf | Muss | 💡 | <v0.2> | | |
 
 ## Meilensteine
 
