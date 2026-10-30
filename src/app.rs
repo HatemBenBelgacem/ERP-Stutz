@@ -1,7 +1,9 @@
 use leptos::prelude::*;
 use leptos_meta::{HashedStylesheet, MetaTags, Title, provide_meta_context};
 use leptos_router::StaticSegment;
-use leptos_router::components::{Outlet, ParentRoute, ProtectedParentRoute, Redirect, Route, Router, Routes};
+use leptos_router::components::{
+    Outlet, ParentRoute, ProtectedParentRoute, Redirect, Route, Router, Routes,
+};
 
 use crate::backend::auth::{Abmelden, Anmelden, Registrieren, aktueller_benutzer_laden};
 use crate::components::adresse::AdresseSeite;
@@ -66,7 +68,9 @@ impl Sitzung {
 
     /// `None` = lädt noch, sonst ob der Benutzer die Funktion nutzen darf.
     pub fn darf(&self, bereich: Bereich, aktion: Aktion) -> Option<bool> {
-        self.benutzer.get().map(|r| matches!(r, Ok(Some(b)) if b.darf(bereich, aktion)))
+        self.benutzer
+            .get()
+            .map(|r| matches!(r, Ok(Some(b)) if b.darf(bereich, aktion)))
     }
 
     pub fn sieht(&self, bereich: Bereich) -> Option<bool> {
@@ -75,7 +79,11 @@ impl Sitzung {
 
     /// Für Buttons: ein Recht, das reaktiv abgefragt werden kann.
     pub fn recht(self, bereich: Bereich, aktion: Aktion) -> Recht {
-        Recht { sitzung: self, bereich, aktion }
+        Recht {
+            sitzung: self,
+            bereich,
+            aktion,
+        }
     }
 
     /// Wohin umgeleitet wird, wenn eine Seite nicht erlaubt ist.
@@ -121,10 +129,21 @@ pub fn App() -> impl IntoView {
     let registrieren = ServerAction::<Registrieren>::new();
     let abmelden = ServerAction::<Abmelden>::new();
     let benutzer = Resource::new(
-        move || (anmelden.version().get(), registrieren.version().get(), abmelden.version().get()),
+        move || {
+            (
+                anmelden.version().get(),
+                registrieren.version().get(),
+                abmelden.version().get(),
+            )
+        },
         |_| aktueller_benutzer_laden(),
     );
-    let sitzung = Sitzung { benutzer, anmelden, registrieren, abmelden };
+    let sitzung = Sitzung {
+        benutzer,
+        anmelden,
+        registrieren,
+        abmelden,
+    };
     provide_context(sitzung);
 
     view! {

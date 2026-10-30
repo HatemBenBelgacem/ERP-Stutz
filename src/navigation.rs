@@ -26,22 +26,72 @@ pub const NAVIGATION: [(Option<(&str, icondata::Icon)>, &[Ziel]); 2] = [
         Some(("Personal", icondata::LuBriefcase)),
         &[
             // Termine, Kurse und Anmeldung als Reiter
-            Ziel { text: "Weiterbildung", href: "/personal/weiterbildung", icon: icondata::LuGraduationCap, bereiche: &Bereich::WEITERBILDUNG },
-            Ziel { text: "Mitarbeiter", href: "/personal/mitarbeiter", icon: icondata::LuUsers, bereiche: &[Bereich::Mitarbeiter] },
+            Ziel {
+                text: "Weiterbildung",
+                href: "/personal/weiterbildung",
+                icon: icondata::LuGraduationCap,
+                bereiche: &Bereich::WEITERBILDUNG,
+            },
+            Ziel {
+                text: "Mitarbeiter",
+                href: "/personal/mitarbeiter",
+                icon: icondata::LuUsers,
+                bereiche: &[Bereich::Mitarbeiter],
+            },
         ],
     ),
     (
         None,
         &[
-            Ziel { text: "Adressen", href: "/adressen", icon: icondata::LuMapPin, bereiche: &[Bereich::Adressen] },
-            Ziel { text: "Einkauf", href: "/einkauf", icon: icondata::LuShoppingCart, bereiche: &[Bereich::Einkauf] },
-            Ziel { text: "Lager", href: "/lager", icon: icondata::LuWarehouse, bereiche: &[Bereich::Lager] },
+            Ziel {
+                text: "Adressen",
+                href: "/adressen",
+                icon: icondata::LuMapPin,
+                bereiche: &[Bereich::Adressen],
+            },
+            Ziel {
+                text: "Einkauf",
+                href: "/einkauf",
+                icon: icondata::LuShoppingCart,
+                bereiche: &[Bereich::Einkauf],
+            },
+            Ziel {
+                text: "Lager",
+                href: "/lager",
+                icon: icondata::LuWarehouse,
+                bereiche: &[Bereich::Lager],
+            },
             // Baumansicht Bauobjekte → Projekte
-            Ziel { text: "Projekte", href: "/projekte", icon: icondata::LuConstruction, bereiche: &Bereich::PROJEKTE },
-            Ziel { text: "Stunden erfassen", href: "/stunden-erfassen", icon: icondata::LuClockPlus, bereiche: &[Bereich::Stunden] },
-            Ziel { text: "Buchungen", href: "/buchungen", icon: icondata::LuReceipt, bereiche: &[Bereich::Buchungen] },
-            Ziel { text: "Werkhof", href: "/werkhof", icon: icondata::LuTruck, bereiche: &[Bereich::Werkhof] },
-            Ziel { text: "Finanzen", href: "/finanzen", icon: icondata::LuWallet, bereiche: &[Bereich::Finanzen] },
+            Ziel {
+                text: "Projekte",
+                href: "/projekte",
+                icon: icondata::LuConstruction,
+                bereiche: &Bereich::PROJEKTE,
+            },
+            Ziel {
+                text: "Stunden erfassen",
+                href: "/stunden-erfassen",
+                icon: icondata::LuClockPlus,
+                bereiche: &[Bereich::Stunden],
+            },
+            Ziel {
+                text: "Buchungen",
+                href: "/buchungen",
+                icon: icondata::LuReceipt,
+                bereiche: &[Bereich::Buchungen],
+            },
+            Ziel {
+                text: "Werkhof",
+                href: "/werkhof",
+                icon: icondata::LuTruck,
+                bereiche: &[Bereich::Werkhof],
+            },
+            Ziel {
+                text: "Finanzen",
+                href: "/finanzen",
+                icon: icondata::LuWallet,
+                bereiche: &[Bereich::Finanzen],
+            },
         ],
     ),
 ];
@@ -52,11 +102,17 @@ mod tests {
 
     /// Alle Module in der Reihenfolge der Navigation
     fn module() -> Vec<Ziel> {
-        NAVIGATION.iter().flat_map(|(_, eintraege)| eintraege.iter().copied()).collect()
+        NAVIGATION
+            .iter()
+            .flat_map(|(_, eintraege)| eintraege.iter().copied())
+            .collect()
     }
 
     fn modul(text: &str) -> Ziel {
-        module().into_iter().find(|z| z.text == text).expect("Modul fehlt in der Navigation")
+        module()
+            .into_iter()
+            .find(|z| z.text == text)
+            .expect("Modul fehlt in der Navigation")
     }
 
     #[test]

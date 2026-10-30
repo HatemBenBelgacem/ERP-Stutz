@@ -61,7 +61,11 @@ fn kompakte_tabellen() -> RwSignal<bool> {
 }
 
 #[component]
-fn Header(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>, kompakt: RwSignal<bool>) -> impl IntoView {
+fn Header(
+    eingeklappt: RwSignal<bool>,
+    mobil_offen: RwSignal<bool>,
+    kompakt: RwSignal<bool>,
+) -> impl IntoView {
     view! {
         // Farben wie stutzag.ch: gelber Balken, schwarze Schrift
         <header class="navbar z-50 h-16 min-h-16 gap-2 border-b border-stutz-dunkel bg-stutz px-3 text-black">
@@ -109,8 +113,16 @@ fn Header(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>, kompakt: RwS
 #[component]
 fn Sidebar(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl IntoView {
     let klassen = move || {
-        let mobil = if mobil_offen.get() { "translate-x-0 shadow-xl" } else { "-translate-x-full" };
-        let breite = if eingeklappt.get() { "lg:w-16" } else { "lg:w-60" };
+        let mobil = if mobil_offen.get() {
+            "translate-x-0 shadow-xl"
+        } else {
+            "-translate-x-full"
+        };
+        let breite = if eingeklappt.get() {
+            "lg:w-16"
+        } else {
+            "lg:w-60"
+        };
         format!(
             "fixed top-16 bottom-0 left-0 z-40 w-60 {mobil} md:static md:w-16 md:translate-x-0 md:shadow-none {breite} \
              flex shrink-0 flex-col overflow-hidden border-r border-base-300 bg-base-100 transition-all duration-200"
@@ -171,7 +183,11 @@ fn Sidebar(eingeklappt: RwSignal<bool>, mobil_offen: RwSignal<bool>) -> impl Int
 
 /// Menütexte: auf dem Tablet immer ausgeblendet, auf dem Desktop nur eingeklappt.
 fn beschriftung_klassen(eingeklappt: bool) -> &'static str {
-    if eingeklappt { "md:hidden" } else { "md:max-lg:hidden" }
+    if eingeklappt {
+        "md:hidden"
+    } else {
+        "md:max-lg:hidden"
+    }
 }
 
 /// Einklappbare Gruppe. Eingeklappt ist der Titel markiert, wenn eine
@@ -190,7 +206,11 @@ fn NavGruppe(
     let beschriftung = move || beschriftung_klassen(eingeklappt.get());
     // Als Icon-Leiste ohne Einzug und Linie
     let einzug = move || {
-        if eingeklappt.get() { "md:ms-0 md:ps-0 md:before:hidden" } else { "md:max-lg:ms-0 md:max-lg:ps-0 md:max-lg:before:hidden" }
+        if eingeklappt.get() {
+            "md:ms-0 md:ps-0 md:before:hidden"
+        } else {
+            "md:max-lg:ms-0 md:max-lg:ps-0 md:max-lg:before:hidden"
+        }
     };
     view! {
         <li>
